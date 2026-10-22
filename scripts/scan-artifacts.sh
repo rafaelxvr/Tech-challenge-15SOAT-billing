@@ -17,8 +17,10 @@ declare -A padroes=(
 )
 
 achou=0
+existentes=0
 for diretorio in "$@"; do
   [ -d "$diretorio" ] || continue
+  existentes=$((existentes + 1))
   for nome in "${!padroes[@]}"; do
     while IFS= read -r arquivo; do
       echo "ACHADO: padrão '${nome}' em ${arquivo}" >&2
@@ -26,6 +28,11 @@ for diretorio in "$@"; do
     done < <(grep -rlEI --exclude-dir=jacoco-resources -- "${padroes[$nome]}" "$diretorio" 2>/dev/null || true)
   done
 done
+
+if [ "$existentes" -eq 0 ]; then
+  echo "scan-artifacts: nenhum diretório informado existe; nada foi verificado" >&2
+  exit 2
+fi
 
 if [ "$achou" -ne 0 ]; then
   echo "scan-artifacts: artefatos não podem ser publicados" >&2

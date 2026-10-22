@@ -9,6 +9,31 @@ LocalStack e Kind efêmero. Nenhum recurso AWS é criado nem alcançado.
 - HTTP na porta `8080`, contexto `/billing`; saúde em `/billing/actuator/health` (probes `liveness` e `readiness`).
 - Contrato HTTP versionado em [`docs/openapi.json`](docs/openapi.json) (um teste acusa divergência com o gerado).
 
+## Arquitetura
+
+```mermaid
+flowchart LR
+  OS[os-service<br/>orquestrador da saga] -- comandos --> CMD[(billing-commands.fifo)]
+  CMD -- 5 recebimentos --> DLQ[(billing-commands-dlq.fifo)]
+  CMD --> L[SqsComandosListener]
+  subgraph billing [billing-service]
+    L --> P[ProcessadorComandos<br/>inbox idempotente]
+    P --> UC[casos de uso<br/>orçamento e pagamento]
+    UC --> DB[(PostgreSQL billing<br/>orçamento, pagamento, inbox, outbox)]
+    DB --> OB[Outbox por osId] --> E[Emissor SQS]
+    WH[POST /webhooks/mercadopago<br/>HMAC, janela, dedup] --> CF[ConfirmacaoPagamentoService]
+    RC[POST /pagamentos/id/reconsulta<br/>poller opcional] --> CF
+    CF --> UC
+    UC --> GW[GatewayPagamento ACL]
+  end
+  E -- respostas --> REP[(os-saga-replies.fifo)] --> OS
+  GW --> MP[Mercado Pago<br/>sandbox, RestClient]
+  MP -. notificação .-> WH
+  GW -. perfil gateway-fake, só testes .-> FK[GatewayPagamentoFake]
+```
+
+Tudo roda local (PostgreSQL, LocalStack, Kind efêmero); nenhuma chamada a recursos AWS.
+
 ## Contratos da saga
 
 Os schemas e fixtures v1 ficam em [`contracts/`](contracts) (congelados no gate G1.5; manifesto `CONTRACTS.sha256`).
@@ -32,7 +57,8 @@ Os schemas e fixtures v1 ficam em [`contracts/`](contracts) (congelados no gate 
   `POST /v1/payments/{id}/refunds`. Testado com WireMock.
 - **Webhook** `POST /webhooks/mercadopago`: assinatura `x-signature` (HMAC-SHA256 do manifesto
   `id:{data.id};request-id:{x-request-id};ts:{ts};`) comparada em tempo constante, janela temporal configurável,
-  dedup/replay por `x-request-id` + `data.id`, limite de corpo (413) e de taxa (429). A notificação **nunca** é confiada:
+  dedup/replay por `x-request-id` + `data.id`, limite de corpo (413, inclusive para `Transfer-Encoding: chunked`, que não declara tamanho) e de taxa (429, por origem,
+  para que uma origem que inunde não esgote a janela das notificações legítimas). A notificação **nunca** é confiada:
   o pagamento é relido no provedor e a `external_reference`, o **valor** e a **moeda (BRL)** são conferidos antes de
   confirmar. Divergência não confirma, estorna o cobrado e registra `billing_pagamento_divergente`.
 - **Sem túnel HTTPS aprovado** o webhook real não chega ao Kind. A alternativa suportada é a **re-consulta**:
@@ -93,23 +119,29 @@ bash scripts/deploy-kind.sh down     # remove somente o cluster Kind descartáve
 | S-7 CI/supply chain | `permissions: contents: read`, ações fixadas por SHA, checksum do Maven Wrapper, Gitleaks e Trivy fixados por digest, SAST (SpotBugs + Find Security Bugs), SCA, scanner de artefatos antes do upload | `.github/workflows/ci.yml`, `scripts/scan-artifacts.sh`, `ControlesDeEntregaTest` |
 | S-10 imagem/pod | Imagens por digest, usuário 10001, `readOnlyRootFilesystem`, `automountServiceAccountToken: false`, limites de CPU/memória, scan da imagem | `Dockerfile`, `k8s/`, `ControlesDeEntregaTest`, Trivy |
 
+Premissas registradas (revisão de segurança): a allowlist de hosts do SQS (S-3) e as credenciais fixas `test/test` valem
+para uso exclusivamente local; quem controla o ambiente do pod controla a allowlist. Postgres e LocalStack de
+`k8s/local-deps` são dependências efêmeras locais, sem `securityContext` nem NetworkPolicy (o Kind padrão não aplica
+NetworkPolicy). Limite de taxa do webhook por IP de origem não resiste a quem falsifica muitos IPs; ligue
+`billing.reconsulta.enabled` quando o webhook real estiver exposto.
+
 Risco aceito nesta fase (S-2): o HS256 usa segredo compartilhado entre os três serviços; comprometer um serviço permite
 forjar token de staff nos outros até a expiração. Uso exclusivamente local/Kind.
 
 ## Medições (máquina local, JDK 17.0.20, Docker 29.8)
 
-Evidência no commit de código `694a0ed` (o README é posterior; o CI do PR repete tudo no SHA final):
+Medido localmente na árvore do PR após as correções de revisão (UNR-130/UNR-131); o CI do PR repete tudo no SHA final. Os números anteriores (219 testes, 96,03%) eram do SHA `21219f1`:
 
 | Verificação | Resultado |
 |---|---|
-| `./mvnw verify` | 219 testes, 0 falhas, 0 ignorados |
-| JaCoCo (linhas; exclui `config`, `*Application*`, `dto`) | 96,43% (729/756); regra de build ≥ 80% |
+| `./mvnw verify` | 226 testes, 0 falhas, 0 ignorados |
+| JaCoCo (linhas; exclui `config`, `*Application*`, `dto`) | 96,48% (740/767); regra de build ≥ 80% |
 | SAST SpotBugs + Find Security Bugs (limiar Medium) | 0 achados, com exclusões justificadas em `spotbugs-exclude.xml` |
 | Trivy fs (`pom.xml`) e imagem (HIGH/CRITICAL com correção) | 0 achados, com exceções justificadas em `.trivyignore` |
 | Gitleaks (histórico e árvore) | 0 vazamentos; única exceção é o segredo JWT de fixture em `src/test` (`.gitleaks.toml`) |
 | Kind efêmero (`deploy-kind.sh up/verify/down`) | pod `1/1 Running`, `/billing/actuator/health` = `UP`, fumaça `GerarOrcamento -> OrcamentoGerado` recebida, imagem do SHA exato |
 
-Não medido aqui: SonarCloud (habilite a variável de repositório `SONAR_ENABLED=true` e o segredo `SONAR_TOKEN`),
+Não medido aqui: SonarCloud, que o suplemento Local Kind exige (a execução depende do Rafael: habilite a variável de repositório `SONAR_ENABLED=true` e o segredo `SONAR_TOKEN`; sem isso o job fica `skipping`),
 execução do workflow no GitHub e prova de pagamento real no sandbox (G5).
 
 ## Desvios em relação ao Plan 2

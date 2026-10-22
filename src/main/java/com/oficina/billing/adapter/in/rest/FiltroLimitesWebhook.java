@@ -31,13 +31,19 @@ public class FiltroLimitesWebhook extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        if (!limitador.permitir()) {
+        if (!limitador.permitir(request.getRemoteAddr())) {
             rejeitar(response, 429, "WEBHOOK_RATE_LIMITED");
-        } else if (request.getContentLengthLong() > maximoBytes) {
+        } else if (request.getContentLengthLong() > maximoBytes || chunked(request)) {
+            // Chunked bodies have no declared length and would be parsed before the signature is checked.
             rejeitar(response, 413, "WEBHOOK_BODY_TOO_LARGE");
         } else {
             chain.doFilter(request, response);
         }
+    }
+
+    private static boolean chunked(HttpServletRequest request) {
+        String codificacao = request.getHeader("Transfer-Encoding");
+        return codificacao != null && codificacao.toLowerCase(java.util.Locale.ROOT).contains("chunked");
     }
 
     private static void rejeitar(HttpServletResponse response, int status, String codigo) {

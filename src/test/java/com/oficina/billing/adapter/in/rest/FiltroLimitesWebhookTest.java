@@ -35,6 +35,26 @@ class FiltroLimitesWebhookTest {
         assertThat(status(filtro, webhook(101))).isEqualTo(413);
     }
 
+    @Test void corpoSemContentLengthChunkedRetorna413() throws Exception {
+        var filtro = new FiltroLimitesWebhook(100, new LimitadorTaxa(10, Duration.ofMinutes(1), Clock.fixed(T0, ZoneOffset.UTC)));
+        var request = webhook(1);
+        request.setContent(null);
+        request.addHeader("Transfer-Encoding", "chunked");
+        assertThat(request.getContentLengthLong()).isNegative();
+        assertThat(status(filtro, request)).isEqualTo(413);
+    }
+
+    @Test void origemQueExcedeALimiteNaoConsomeAJanelaDeOutraOrigem() throws Exception {
+        var filtro = new FiltroLimitesWebhook(100, new LimitadorTaxa(1, Duration.ofMinutes(1), Clock.fixed(T0, ZoneOffset.UTC)));
+        var atacante = webhook(1);
+        atacante.setRemoteAddr("203.0.113.9");
+        var provedor = webhook(1);
+        provedor.setRemoteAddr("198.51.100.7");
+        assertThat(status(filtro, atacante)).isEqualTo(200);
+        assertThat(status(filtro, atacante)).isEqualTo(429);
+        assertThat(status(filtro, provedor)).isEqualTo(200);
+    }
+
     @Test void excessoDeRequisicoesNaJanelaRetorna429EReiniciaNaProximaJanela() throws Exception {
         var relogio = new RelogioMutavel(T0);
         var filtro = new FiltroLimitesWebhook(100, new LimitadorTaxa(2, Duration.ofMinutes(1), relogio));
