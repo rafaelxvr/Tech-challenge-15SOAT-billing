@@ -17,13 +17,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
+import java.util.Set;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = "billing.mensageria.enabled", havingValue = "true")
 public class MensageriaConfiguration {
     @Bean(destroyMethod = "close") ClientesSqs clientesSqs(BillingProperties p,
-            @Value("${AWS_ROLE_ARN:}") String roleArn, @Value("${AWS_WEB_IDENTITY_TOKEN_FILE:}") String tokenFile) {
-        return ClientesSqs.criar(p.mensageria(), roleArn, tokenFile);
+            @Value("${billing.mensageria.hosts-permitidos}") List<String> hostsPermitidos) {
+        return ClientesSqs.criar(p.mensageria(), Set.copyOf(hostsPermitidos));
     }
 
     @Bean EnviadorMensagens enviadorMensagens(ClientesSqs clientes, BillingProperties p) {

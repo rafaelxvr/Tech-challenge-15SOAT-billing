@@ -55,5 +55,6 @@ billing:
     enabled: ${BILLING_MENSAGERIA_ENABLED:false}
     region: ${AWS_REGION:us-east-1}
     endpoint: ${BILLING_SQS_ENDPOINT:}
+    hosts-permitidos: ${BILLING_SQS_HOSTS_PERMITIDOS:localstack.infra.svc,localstack.infra.svc.cluster.local,127.0.0.1,localhost}
     fila-comandos: ${BILLING_FILA_COMANDOS:}
     fila-respostas: ${BILLING_FILA_RESPOSTAS:}

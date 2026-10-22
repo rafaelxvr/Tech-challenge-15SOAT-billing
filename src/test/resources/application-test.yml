@@ -15,6 +15,5 @@ security:
 
 billing:
   mercadopago:
-    access-token: test-token
     webhook-secret: segredo-webhook-teste
     notification-url: https://oficina.example/billing/webhooks/mercadopago

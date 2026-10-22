@@ -100,7 +100,10 @@ class BillingLocalStackTest {
         String pagamentoId = aprovado.payload().get("pagamentoId").asText();
         assertThat(aprovado.payload().get("checkoutUrl").asText()).startsWith("https://pagamento.fake.local/checkout/");
 
-        var simulacao = http.postForEntity("/simulacoes/pagamentos/" + pagamentoId, Map.of("status", "approved"), Map.class);
+        var cabecalhos = new org.springframework.http.HttpHeaders();
+        cabecalhos.setBearerAuth(com.oficina.billing.support.TokensTeste.staff("ADMIN"));
+        var simulacao = http.postForEntity("/simulacoes/pagamentos/" + pagamentoId,
+                new org.springframework.http.HttpEntity<>(Map.of("status", "approved"), cabecalhos), Map.class);
         assertThat(simulacao.getStatusCode().is2xxSuccessful()).isTrue();
         var confirmado = aguardarResposta("PagamentoConfirmado", os);
         assertThat(confirmado.causationId()).isEqualTo(decisao.messageId());

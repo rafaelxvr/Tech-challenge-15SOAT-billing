@@ -12,7 +12,8 @@ import org.springframework.test.context.ActiveProfiles;
 import java.util.Map;
 
 @ActiveProfiles("test")
-@SpringBootTest(classes = BillingApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = BillingApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "billing.mercadopago.access-token=token-de-teste-sem-valor-real")
 class BillingApplicationTest {
 
     @LocalServerPort

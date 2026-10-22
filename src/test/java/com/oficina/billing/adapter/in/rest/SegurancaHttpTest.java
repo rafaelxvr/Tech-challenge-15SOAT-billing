@@ -83,6 +83,26 @@ class SegurancaHttpTest {
         verify(confirmacao).processarNotificacao("123");
     }
 
+    @Test void replayDoMesmoEventoAssinadoNaoReprocessa() throws Exception {
+        long ts = Instant.now().getEpochSecond();
+        String requestId = "req-replay-" + UUID.randomUUID();
+        for (int i = 0; i < 2; i++) {
+            mvc.perform(post("/billing/webhooks/mercadopago").contextPath("/billing").param("data.id", "777").param("type", "payment")
+                    .header("x-request-id", requestId).header("x-signature", assinatura("777", requestId, ts)))
+                    .andExpect(status().isOk());
+        }
+        verify(confirmacao, times(1)).processarNotificacao("777");
+    }
+
+    @Test void webhookComCorpoAcimaDoLimiteRetorna413() throws Exception {
+        long ts = Instant.now().getEpochSecond();
+        mvc.perform(post("/billing/webhooks/mercadopago").contextPath("/billing").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"type\":\"payment\",\"pad\":\"" + "x".repeat(20_000) + "\"}")
+                .header("x-request-id", "req-grande").header("x-signature", assinatura("1", "req-grande", ts)))
+                .andExpect(status().isPayloadTooLarge());
+        verifyNoInteractions(confirmacao);
+    }
+
     @Test void webhookDeOutroTipoEIgnorado() throws Exception {
         long ts = Instant.now().getEpochSecond();
         mvc.perform(post("/billing/webhooks/mercadopago").contextPath("/billing").contentType(MediaType.APPLICATION_JSON)
@@ -92,13 +112,24 @@ class SegurancaHttpTest {
         verify(confirmacao, never()).processarNotificacao(anyString());
     }
 
+    @Test void simulacaoExigeTokenAdmin() throws Exception {
+        String url = "/billing/simulacoes/pagamentos/" + UUID.randomUUID();
+        mvc.perform(post(url).contextPath("/billing").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"approved\"}"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post(url).contextPath("/billing").header("Authorization", "Bearer " + TokensTeste.staff("MECANICO"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"approved\"}"))
+                .andExpect(status().isForbidden());
+        verify(confirmacao, never()).processarNotificacao(anyString());
+    }
+
     @Test void simulacaoDisponivelNoPerfilFake() throws Exception {
         UUID pagamento = UUID.randomUUID();
-        mvc.perform(post("/billing/simulacoes/pagamentos/" + pagamento).contextPath("/billing")
+        String admin = "Bearer " + TokensTeste.staff("ADMIN");
+        mvc.perform(post("/billing/simulacoes/pagamentos/" + pagamento).contextPath("/billing").header("Authorization", admin)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"approved\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.mpPaymentId").isString());
         verify(confirmacao).processarNotificacao(anyString());
-        mvc.perform(post("/billing/simulacoes/pagamentos/" + pagamento).contextPath("/billing")
+        mvc.perform(post("/billing/simulacoes/pagamentos/" + pagamento).contextPath("/billing").header("Authorization", admin)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"talvez\"}"))
                 .andExpect(status().isBadRequest());
     }

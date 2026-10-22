@@ -2,6 +2,7 @@ package com.oficina.billing.adapter.in.rest;
 
 import com.oficina.billing.adapter.out.mercadopago.AssinaturaWebhook;
 import com.oficina.billing.application.ConfirmacaoPagamentoService;
+import com.oficina.billing.application.port.DedupWebhookPort;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ public class WebhookMercadoPagoController {
     private static final Logger LOG = LoggerFactory.getLogger(WebhookMercadoPagoController.class);
     private final AssinaturaWebhook assinatura;
     private final ConfirmacaoPagamentoService confirmacao;
+    private final DedupWebhookPort dedup;
 
     @PostMapping("/webhooks/mercadopago")
     public ResponseEntity<Void> receber(@RequestHeader(value = "x-signature", required = false) String xSignature,
@@ -32,7 +34,9 @@ public class WebhookMercadoPagoController {
             try { LOG.warn("safe"); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
             return ResponseEntity.status(401).build();
         }
+        if (dedup.jaProcessado(xRequestId, dataId)) return ResponseEntity.ok().build();
         if ("payment".equals(tipo)) confirmacao.processarNotificacao(dataId);
+        dedup.marcarProcessado(xRequestId, dataId);
         return ResponseEntity.ok().build();
     }
 
