@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:16-alpine:///billing
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: test
+    password: test
+
+security:
+  jwt:
+    secret: dGVzdGUtc2VncmVkby1kZS0zMi1ieXRlcy1wYXJhLWhzMjU2LW9rIQ==
+    staff:
+      issuer: oficina-test
+      audience: oficina-staff-test
+      key-id: staff-test
+
+billing:
+  mercadopago:
+    access-token: test-token
+    webhook-secret: segredo-webhook-teste
+    notification-url: https://oficina.example/billing/webhooks/mercadopago

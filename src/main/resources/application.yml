@@ -1,7 +1,27 @@
 server:
-  port: ${SERVER_PORT:8080}
+  port: 8080
   servlet:
     context-path: /billing
+
+spring:
+  application:
+    name: billing-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/billing}
+    username: ${DB_USERNAME:billing}
+    password: ${DB_PASSWORD:billing123}
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 2000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
 
 management:
   endpoints:
@@ -12,4 +32,28 @@ management:
     health:
       probes:
         enabled: true
-      show-details: never
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:}
+    staff:
+      issuer: ${JWT_STAFF_ISSUER:}
+      audience: ${JWT_STAFF_AUDIENCE:}
+      key-id: ${JWT_STAFF_KEY_ID:}
+
+billing:
+  pagamento:
+    validade: ${BILLING_PAGAMENTO_VALIDADE:30m}
+  mercadopago:
+    base-url: ${MP_BASE_URL:https://api.mercadopago.com}
+    access-token: ${MP_ACCESS_TOKEN:}
+    webhook-secret: ${MP_WEBHOOK_SECRET:}
+    notification-url: ${MP_NOTIFICATION_URL:}
+    sandbox: ${MP_SANDBOX:true}
+    tolerancia-assinatura: ${MP_TOLERANCIA_ASSINATURA:5m}
+  mensageria:
+    enabled: ${BILLING_MENSAGERIA_ENABLED:false}
+    region: ${AWS_REGION:us-east-1}
+    endpoint: ${BILLING_SQS_ENDPOINT:}
+    fila-comandos: ${BILLING_FILA_COMANDOS:}
+    fila-respostas: ${BILLING_FILA_RESPOSTAS:}
