@@ -119,8 +119,11 @@ jobs:
       - name: Scan da imagem (Trivy image; falha em HIGH/CRITICAL com correção)
         run: |
           set +x
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" image --scanners vuln \
-            --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "billing-service:${COMMIT_SHA}"
+          scan_dir="$(mktemp -d)"
+          docker save "billing-service:${COMMIT_SHA}" -o "${scan_dir}/imagem.tar"
+          docker run --rm -v "${scan_dir}:/work:ro" -v "$PWD:/src:ro" "$TRIVY_IMAGE" image --scanners vuln \
+            --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /src/.trivyignore --exit-code 1 --input /work/imagem.tar
+          rm -rf "$scan_dir"
 
       - name: Saúde do pod e fumaça de mensageria
         run: |

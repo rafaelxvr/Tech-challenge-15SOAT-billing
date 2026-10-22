@@ -32,7 +32,7 @@ class OpenApiTest {
     @Test void contratoHttpPublicadoCorrespondeAoGerado() throws Exception {
         String gerado = mvc.perform(get("/billing/v3/api-docs").contextPath("/billing")
                         .header("Authorization", "Bearer " + TokensTeste.staff("ADMIN")))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         JsonNode atual = JSON.readTree(gerado);
         assertThat(atual.get("paths").fieldNames()).toIterable().contains("/webhooks/mercadopago", "/orcamentos");
         if (Boolean.getBoolean("openapi.escrever")) {
