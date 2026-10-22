@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main, develop, feat/billing-service]
 
+# Controle S-7: permissão mínima por padrão; nenhum job precisa de credencial de nuvem nem de escrita.
 permissions:
   contents: read
 
@@ -13,23 +14,155 @@ concurrency:
   group: billing-ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Identificador do conjunto de contratos v1 (sha256 de contracts/CONTRACTS.sha256); igual nos tres repositorios.
+  CONTRACT_SET_SHA256: 35d863ecc103d4b4ff271004ac21626cbead715de008479381810cb57440e5b0
+  # Imagens de ferramentas fixadas por digest imutável.
+  TRIVY_IMAGE: aquasec/trivy@sha256:ab70a02200597efa04748f210f793936eb647cbcdb0ea69cc30b226d6f5a22c7 # 0.58.1
+  GITLEAKS_IMAGE: zricethezav/gitleaks@sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46 # v8.21.2
+
 jobs:
   build-and-test:
-    name: Build and test (Java 17)
+    name: Build, testes, JaCoCo e SAST (Java 17)
     runs-on: ubuntu-latest
-    env:
-      # Identificador do conjunto de contratos v1 (sha256 de contracts/CONTRACTS.sha256); igual nos tres repositorios.
-      CONTRACT_SET_SHA256: 35d863ecc103d4b4ff271004ac21626cbead715de008479381810cb57440e5b0
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
 
+      - name: Verificar checksum da distribuição do Maven Wrapper
+        run: |
+          set +x
+          grep -Eq '^distributionSha256Sum=[0-9a-f]{64}$' .mvn/wrapper/maven-wrapper.properties
+
+      # verify = testes + JaCoCo (cobertura de linhas >= 80%) + SpotBugs/Find Security Bugs (SAST).
       - name: Verify
         run: bash ./mvnw -B verify
+
+      - name: Resumo de cobertura e SAST (SHA ${{ github.sha }})
+        run: |
+          set +x
+          python3 - <<'PY'
+          import xml.etree.ElementTree as E
+          raiz = E.parse('target/site/jacoco/jacoco.xml').getroot()
+          for c in raiz.findall('counter'):
+              if c.get('type') == 'LINE':
+                  m, v = int(c.get('missed')), int(c.get('covered'))
+                  print(f'JaCoCo LINE {v / (m + v):.4f} ({v}/{m + v})')
+          PY
+          test -f target/spotbugsXml.xml && grep -o 'total_bugs="[0-9]*"' target/spotbugsXml.xml | head -1
+
+      - name: Scanner de artefatos (falha antes do upload se houver token ou PII)
+        run: bash scripts/scan-artifacts.sh target/site/jacoco target/surefire-reports
+
+      - name: Relatórios (JaCoCo e surefire)
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: relatorios-${{ github.sha }}
+          path: |
+            target/site/jacoco
+            target/surefire-reports
+          retention-days: 14
+
+  supply-chain:
+    name: SCA (Trivy), segredos (Gitleaks) e contrato de entrega
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (histórico completo para o Gitleaks)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Gitleaks (versão fixada)
+        run: |
+          set +x
+          docker run --rm -v "$PWD:/repo:ro" "$GITLEAKS_IMAGE" detect --source /repo --no-banner --redact --verbose
+
+      - name: SCA das dependências (Trivy fs; falha em HIGH/CRITICAL com correção)
+        run: |
+          set +x
+          docker run --rm -v "$PWD:/src:ro" "$TRIVY_IMAGE" fs --scanners vuln --severity HIGH,CRITICAL \
+            --ignore-unfixed --ignorefile /src/.trivyignore --exit-code 1 /src/pom.xml
+
+  kind-deploy:
+    name: Deploy em Kind efêmero (SHA exato)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    env:
+      COMMIT_SHA: ${{ github.sha }}
+      OVERLAY: kind-fake
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Instalar o Kind (somente o binário)
+        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        with:
+          install_only: true
+
+      - name: Subir o cluster Kind, as dependências locais e o billing
+        run: |
+          set +x
+          bash scripts/deploy-kind.sh up
+
+      - name: Scan da imagem (Trivy image; falha em HIGH/CRITICAL com correção)
+        run: |
+          set +x
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" image --scanners vuln \
+            --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "billing-service:${COMMIT_SHA}"
+
+      - name: Saúde do pod e fumaça de mensageria
+        run: |
+          set +x
+          bash scripts/deploy-kind.sh verify
+
+      - name: Scanner de artefatos (falha antes do upload se houver token ou PII)
+        run: bash scripts/scan-artifacts.sh target/kind-evidence
+
+      - name: Evidência do Kind
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: kind-evidencia-${{ github.sha }}
+          path: target/kind-evidence
+          retention-days: 14
+
+      - name: Remover o cluster Kind descartável
+        if: always()
+        run: bash scripts/deploy-kind.sh down
+
+  sonar:
+    name: SonarCloud (opt-in; habilite com a variável de repositório SONAR_ENABLED=true)
+    if: ${{ vars.SONAR_ENABLED == 'true' }}
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Java 17
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Análise (o token nunca vai para o log)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set +x
+          bash ./mvnw -B -q verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar

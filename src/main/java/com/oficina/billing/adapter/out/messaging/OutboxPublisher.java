@@ -11,6 +11,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 /** Claims one PENDING row (per-OS order, SKIP LOCKED), sends it, records the ack or backs off. */
@@ -39,7 +40,7 @@ public class OutboxPublisher {
     public OutboxPublisher(JdbcTemplate jdbc, TransactionTemplate transaction, EnviadorMensagens enviador,
                            Clock clock, BackoffPublicacao backoff) {
         this.jdbc = jdbc;
-        this.transaction = new TransactionTemplate(transaction.getTransactionManager());
+        this.transaction = new TransactionTemplate(Objects.requireNonNull(transaction.getTransactionManager()));
         this.transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.transaction.setTimeout(4);
         this.enviador = enviador;

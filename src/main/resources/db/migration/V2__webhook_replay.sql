@@ -7,3 +7,13 @@ CREATE TABLE webhook_evento (
 );
 
 CREATE INDEX idx_webhook_evento_recebido ON webhook_evento(recebido_em);
+
+-- O papel de execução só recebe DELETE nesta tabela (purga de eventos antigos); as demais tabelas ficam em S/I/U.
+-- Condicional: em bancos sem o papel de execução (testes com um único usuário) a concessão é ignorada.
+DO $grant$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'billing_app') THEN
+        GRANT DELETE ON webhook_evento TO billing_app;
+    END IF;
+END
+$grant$;

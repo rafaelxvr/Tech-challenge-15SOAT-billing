@@ -1,0 +1,7 @@
+# Sandbox real do Mercado Pago (vídeo/G5): credenciais injetadas fora de banda; sem gateway fake.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - path: mercadopago.yaml

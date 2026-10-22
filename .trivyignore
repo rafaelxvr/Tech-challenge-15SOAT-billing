@@ -1,0 +1,7 @@
+# Exceções do SCA com justificativa e revisão. Cada linha exige análise explícita; nada aqui é ignorado por padrão.
+#
+# CVE-2026-22733: contorno de autenticação nos endpoints Actuator do CloudFoundry. Não se aplica: o serviço não roda em
+# CloudFoundry (os endpoints só existem com VCAP_APPLICATION) e expõe apenas health/info. A correção exige Spring Boot
+# 3.5.12 ou 4.x, salto de versão maior que o escopo desta fase. Rever junto com a atualização do Spring Boot.
+# Revisão: 2026-11-17 (entrega da Fase 4).
+CVE-2026-22733
