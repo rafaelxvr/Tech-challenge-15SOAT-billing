@@ -134,8 +134,8 @@ Medido localmente na árvore do PR após as correções de revisão (UNR-130/UNR
 
 | Verificação | Resultado |
 |---|---|
-| `./mvnw verify` | 225 testes, 0 falhas, 0 ignorados |
-| JaCoCo (linhas; exclui `config`, `*Application*`, `dto`) | 96,09% (737/767); regra de build ≥ 80% |
+| `./mvnw verify` | 226 testes, 0 falhas, 0 ignorados |
+| JaCoCo (linhas; exclui `config`, `*Application*`, `dto`) | 96,22% (739/768); regra de build ≥ 80% |
 | SAST SpotBugs + Find Security Bugs (limiar Medium) | 0 achados, com exclusões justificadas em `spotbugs-exclude.xml` |
 | Trivy fs (`pom.xml`) e imagem (HIGH/CRITICAL com correção) | 0 achados, com exceções justificadas em `.trivyignore` |
 | Gitleaks (histórico e árvore) | 0 vazamentos; única exceção é o segredo JWT de fixture em `src/test` (`.gitleaks.toml`) |
