@@ -15,6 +15,8 @@ import java.util.UUID;
 public interface PagamentoRepository extends JpaRepository<Pagamento, UUID> {
     Optional<Pagamento> findByOrcamentoId(UUID orcamentoId);
 
+    List<Pagamento> findByEstado(com.oficina.billing.domain.EstadoPagamento estado, Pageable limite);
+
     /** Webhook retries and the expiry poller serialize on the payment row. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Pagamento p WHERE p.id = :id")

@@ -4,6 +4,7 @@ import com.oficina.billing.domain.Dinheiro;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Anti-corruption port: provider types never cross this boundary. */
@@ -11,6 +12,9 @@ public interface GatewayPagamento {
     Cobranca criarCobranca(SolicitacaoCobranca solicitacao);
 
     SituacaoPagamento consultarPagamento(String mpPaymentId);
+
+    /** Re-query fallback when no webhook arrives: the provider payment that carries our external reference, if any. */
+    Optional<SituacaoPagamento> buscarPorReferencia(UUID pagamentoId);
 
     void estornar(String mpPaymentId, UUID chaveIdempotencia);
 

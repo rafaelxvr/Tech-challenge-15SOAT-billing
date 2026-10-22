@@ -13,6 +13,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Anti-corruption layer over the Mercado Pago REST API; provider fields never leave this class. */
@@ -60,6 +61,19 @@ public class MercadoPagoGateway implements GatewayPagamento {
     }
 
     @Override
+    public Optional<SituacaoPagamento> buscarPorReferencia(UUID pagamentoId) {
+        BuscaMp busca = chamar("MERCADO_PAGO_BUSCA", () -> http.get().uri(
+                "/v1/payments/search?external_reference={ref}&sort=date_created&criteria=desc", pagamentoId.toString())
+                .retrieve().body(BuscaMp.class));
+        if (busca.results() == null) return Optional.empty();
+        // Prefer an approved payment; otherwise the most recent one (the provider returns newest first).
+        return busca.results().stream().filter(p -> p.id() != null)
+                .min(java.util.Comparator.comparing((PagamentoMp p) -> !"approved".equals(p.status())))
+                .map(p -> new SituacaoPagamento(String.valueOf(p.id()), uuidOuNulo(p.externalReference()),
+                        status(p.status()), p.transactionAmount(), p.currencyId()));
+    }
+
+    @Override
     public void estornar(String mpPaymentId, UUID chaveIdempotencia) {
         chamar("MERCADO_PAGO_ESTORNO", () -> http.post().uri("/v1/payments/{id}/refunds", mpPaymentId)
                 .header("X-Idempotency-Key", chaveIdempotencia.toString()).contentType(MediaType.APPLICATION_JSON)
@@ -88,6 +102,8 @@ public class MercadoPagoGateway implements GatewayPagamento {
 
     record Preferencia(String id, @JsonProperty("init_point") String initPoint,
                        @JsonProperty("sandbox_init_point") String sandboxInitPoint) {}
+
+    record BuscaMp(java.util.List<PagamentoMp> results) {}
 
     record PagamentoMp(Long id, String status, @JsonProperty("external_reference") String externalReference,
                        @JsonProperty("transaction_amount") java.math.BigDecimal transactionAmount,

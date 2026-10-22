@@ -31,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SegurancaHttpTest {
     @Autowired MockMvc mvc;
     @MockBean ConfirmacaoPagamentoService confirmacao;
+    @MockBean com.oficina.billing.application.ReconsultaPagamentoService reconsulta;
 
     static String assinatura(String dataId, String requestId, long ts) throws Exception {
         Mac mac = Mac.getInstance("HmacSHA256");
@@ -61,6 +62,19 @@ class SegurancaHttpTest {
                 .andExpect(status().isUnauthorized());
         mvc.perform(get(url).contextPath("/billing").header("Authorization", "Bearer lixo"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test void reconsultaExigeAdmin() throws Exception {
+        String url = "/billing/pagamentos/" + UUID.randomUUID() + "/reconsulta";
+        mvc.perform(post(url).contextPath("/billing")).andExpect(status().isUnauthorized());
+        mvc.perform(post(url).contextPath("/billing").header("Authorization", "Bearer " + TokensTeste.staff("MECANICO")))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(reconsulta);
+    }
+
+    @Test void reconsultaDePagamentoInexistenteRetorna404() throws Exception {
+        mvc.perform(post("/billing/pagamentos/" + UUID.randomUUID() + "/reconsulta").contextPath("/billing")
+                .header("Authorization", "Bearer " + TokensTeste.staff("ADMIN"))).andExpect(status().isNotFound());
     }
 
     @Test void pagamentoInexistenteRetorna404() throws Exception {

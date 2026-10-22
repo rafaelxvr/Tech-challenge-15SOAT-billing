@@ -3,6 +3,7 @@ package com.oficina.billing.adapter.in.rest;
 import com.oficina.billing.adapter.in.rest.dto.OrcamentoResponse;
 import com.oficina.billing.adapter.in.rest.dto.PagamentoResponse;
 import com.oficina.billing.application.ConsultaBillingService;
+import com.oficina.billing.application.ReconsultaPagamentoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -17,11 +19,20 @@ import java.util.UUID;
 @Tag(name = "Billing", description = "Consulta de orçamentos e pagamentos (staff ADMIN)")
 public class ConsultaController {
     private final ConsultaBillingService consulta;
+    private final ReconsultaPagamentoService reconsulta;
 
     @GetMapping("/orcamentos")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Orçamentos de uma ordem de serviço, por versão")
     public List<OrcamentoResponse> orcamentos(@RequestParam UUID osId) { return consulta.orcamentosDaOs(osId); }
+
+    @PostMapping("/pagamentos/{id}/reconsulta")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Reconsulta o pagamento no provedor (alternativa ao webhook) e aplica o resultado verificado")
+    public Map<String, Object> reconsultar(@PathVariable UUID id) {
+        boolean aplicado = reconsulta.reconsultar(id);
+        return Map.of("aplicado", aplicado, "estado", consulta.pagamento(id).estado());
+    }
 
     @GetMapping("/pagamentos/{id}")
     @PreAuthorize("hasRole('ADMIN')")

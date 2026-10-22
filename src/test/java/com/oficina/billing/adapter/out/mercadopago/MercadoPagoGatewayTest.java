@@ -63,6 +63,33 @@ class MercadoPagoGatewayTest {
         assertThat(gateway.consultarPagamento("989")).isEqualTo(new SituacaoPagamento("989", null, StatusExterno.PENDENTE, null, null));
     }
 
+    @Test void buscaPorReferenciaPrefereOPagamentoAprovado() {
+        UUID pagamento = UUID.randomUUID();
+        mp.stubFor(get(urlPathEqualTo("/v1/payments/search")).withQueryParam("external_reference", equalTo(pagamento.toString()))
+                .willReturn(okJson("{\"results\":["
+                        + "{\"id\":2,\"status\":\"rejected\",\"external_reference\":\"" + pagamento + "\",\"transaction_amount\":10.00,\"currency_id\":\"BRL\"},"
+                        + "{\"id\":1,\"status\":\"approved\",\"external_reference\":\"" + pagamento + "\",\"transaction_amount\":151.00,\"currency_id\":\"BRL\"}]}")));
+        var situacao = gateway.buscarPorReferencia(pagamento).orElseThrow();
+        assertThat(situacao.mpPaymentId()).isEqualTo("1");
+        assertThat(situacao.status()).isEqualTo(StatusExterno.APROVADO);
+        assertThat(situacao.valor()).isEqualByComparingTo("151.00");
+        assertThat(situacao.pagamentoId()).isEqualTo(pagamento);
+    }
+
+    @Test void buscaPorReferenciaSemResultadosRetornaVazio() {
+        UUID pagamento = UUID.randomUUID();
+        mp.stubFor(get(urlPathEqualTo("/v1/payments/search")).willReturn(okJson("{\"results\":[]}")));
+        assertThat(gateway.buscarPorReferencia(pagamento)).isEmpty();
+        mp.stubFor(get(urlPathEqualTo("/v1/payments/search")).willReturn(okJson("{}")));
+        assertThat(gateway.buscarPorReferencia(pagamento)).isEmpty();
+    }
+
+    @Test void buscaComProvedorIndisponivelFalhaSemVazarDetalhes() {
+        mp.stubFor(get(urlPathEqualTo("/v1/payments/search")).willReturn(aResponse().withStatus(503).withBody("token=segredo")));
+        assertThatThrownBy(() -> gateway.buscarPorReferencia(UUID.randomUUID()))
+                .isInstanceOf(GatewayIndisponivelException.class).hasMessageNotContaining("segredo");
+    }
+
     @Test void estornoEnviaChaveDeIdempotencia() {
         UUID chave = UUID.randomUUID();
         mp.stubFor(post("/v1/payments/987/refunds").willReturn(aResponse().withStatus(201).withBody("{\"id\":1}")));

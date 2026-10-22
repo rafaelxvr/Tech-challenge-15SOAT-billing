@@ -5,6 +5,7 @@ import com.oficina.billing.application.port.GatewayPagamento;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +30,10 @@ public class GatewayPagamentoFake implements GatewayPagamento {
         SituacaoPagamento situacao = pagamentos.get(mpPaymentId);
         if (situacao == null) throw new GatewayIndisponivelException("FAKE_PAGAMENTO_DESCONHECIDO");
         return situacao;
+    }
+
+    @Override public Optional<SituacaoPagamento> buscarPorReferencia(UUID pagamentoId) {
+        return pagamentos.values().stream().filter(s -> pagamentoId.equals(s.pagamentoId())).findFirst();
     }
 
     @Override public void estornar(String mpPaymentId, UUID chaveIdempotencia) {
