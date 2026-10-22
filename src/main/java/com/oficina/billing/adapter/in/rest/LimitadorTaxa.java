@@ -13,6 +13,8 @@ import java.util.Map;
 public class LimitadorTaxa {
     static final int MAXIMO_ORIGENS = 10_000;
     private static final String ORIGEM_AGREGADA = "*";
+    /** One slot stays reserved for the aggregate window, so the table never exceeds MAXIMO_ORIGENS. */
+    private static final int LIMITE_UTIL = MAXIMO_ORIGENS - 1;
 
     private final int maximoPorJanela;
     private final Duration janela;
@@ -29,11 +31,11 @@ public class LimitadorTaxa {
         Instant agora = clock.instant();
         Contador contador = contadores.get(origem);
         if (contador == null) {
-            if (contadores.size() >= MAXIMO_ORIGENS) {
+            if (contadores.size() >= LIMITE_UTIL) {
                 contadores.values().removeIf(c -> c.expirou(agora, janela));
             }
             // Memory stays bounded: once the table is full of live origins, newcomers share one aggregate window.
-            String chave = contadores.size() >= MAXIMO_ORIGENS ? ORIGEM_AGREGADA : origem;
+            String chave = contadores.size() >= LIMITE_UTIL ? ORIGEM_AGREGADA : origem;
             contador = contadores.computeIfAbsent(chave, k -> new Contador(agora));
         }
         if (contador.expirou(agora, janela)) {
@@ -43,6 +45,8 @@ public class LimitadorTaxa {
         contador.usados++;
         return true;
     }
+
+    synchronized int origensRastreadas() { return contadores.size(); }
 
     private static final class Contador {
         private Instant inicio;
