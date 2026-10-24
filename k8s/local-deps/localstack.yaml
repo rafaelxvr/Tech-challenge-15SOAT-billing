@@ -1,0 +1,42 @@
+# LocalStack somente com SQS; credenciais dummy test/test. Nenhum recurso AWS real é alcançado.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localstack
+  namespace: infra
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: localstack}
+  template:
+    metadata:
+      labels: {app: localstack}
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: localstack
+          # localstack/localstack:3.8
+          image: localstack/localstack@sha256:b279c01f4cfb8f985a482e4014cabc1e2697b9d7a6c8c8db2e40f4d9f93687c7
+          ports:
+            - {name: edge, containerPort: 4566}
+          env:
+            - {name: SERVICES, value: sqs}
+            - {name: DEBUG, value: "0"}
+            - {name: DISABLE_EVENTS, value: "1"}
+          readinessProbe:
+            httpGet: {path: /_localstack/health, port: edge}
+            periodSeconds: 5
+            failureThreshold: 24
+          resources:
+            requests: {cpu: 100m, memory: 512Mi}
+            limits: {cpu: "1", memory: 1Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: localstack
+  namespace: infra
+spec:
+  selector: {app: localstack}
+  ports:
+    - {name: edge, port: 4566, targetPort: edge}

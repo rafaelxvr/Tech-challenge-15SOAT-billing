@@ -1,0 +1,18 @@
+# Desenvolvimento na máquina local contra docker-compose.local.yml (PostgreSQL e LocalStack em loopback).
+# Segredos vêm de um `.env` ignorado pelo Git (veja `.env.example`); nada real é versionado.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://127.0.0.1:5433/billing}
+    username: ${DB_USERNAME:billing_app}
+    password: ${DB_PASSWORD:}
+  flyway:
+    user: ${DB_MIGRATION_USERNAME:billing_migrator}
+    password: ${DB_MIGRATION_PASSWORD:}
+
+billing:
+  mensageria:
+    enabled: ${BILLING_MENSAGERIA_ENABLED:true}
+    region: us-east-1
+    endpoint: ${BILLING_SQS_ENDPOINT:http://127.0.0.1:4566}
+    fila-comandos: ${BILLING_FILA_COMANDOS:http://127.0.0.1:4566/000000000000/billing-commands.fifo}
+    fila-respostas: ${BILLING_FILA_RESPOSTAS:http://127.0.0.1:4566/000000000000/os-saga-replies.fifo}
