@@ -1,0 +1,46 @@
+# Espelha o contrato de filas do Plan 4 (a criação oficial é do Plan 4) para o deploy autônomo e o CI deste repositório.
+# O serviço nunca cria filas. FIFO, DLQ com 5 recebimentos, sem deduplicação por conteúdo.
+# Aplicado por scripts/deploy-kind.sh depois que o LocalStack estiver pronto.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: queue-init
+  namespace: infra
+spec:
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      containers:
+        - name: aws-cli
+          # amazon/aws-cli:2.17.0
+          image: amazon/aws-cli@sha256:643507c10ada7964ca6157b3d799f030b90577643da9955d319a77399ed80d73
+          env:
+            - {name: AWS_ACCESS_KEY_ID, value: test}
+            - {name: AWS_SECRET_ACCESS_KEY, value: test}
+            - {name: AWS_DEFAULT_REGION, value: us-east-1}
+            - {name: AWS_ENDPOINT_URL, value: "http://localstack.infra.svc.cluster.local:4566"}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              base="http://localstack.infra.svc.cluster.local:4566/000000000000"
+              for fila in billing-commands os-saga-replies; do
+                aws sqs create-queue --queue-name "${fila}-dlq.fifo" \
+                  --attributes FifoQueue=true,ContentBasedDeduplication=false >/dev/null
+                dlq_arn=$(aws sqs get-queue-attributes --queue-url "${base}/${fila}-dlq.fifo" \
+                  --attribute-names QueueArn --query Attributes.QueueArn --output text)
+                cat > /tmp/atributos.json <<JSON
+              {"FifoQueue":"true","ContentBasedDeduplication":"false","VisibilityTimeout":"30","RedrivePolicy":"{\"deadLetterTargetArn\":\"${dlq_arn}\",\"maxReceiveCount\":\"5\"}"}
+              JSON
+                aws sqs create-queue --queue-name "${fila}.fifo" --attributes file:///tmp/atributos.json >/dev/null
+              done
+              aws sqs list-queues --query 'QueueUrls[]' --output text
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
