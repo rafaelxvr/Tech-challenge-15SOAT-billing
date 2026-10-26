@@ -9,8 +9,8 @@ RUN mvn -B -q clean package -DskipTests
 
 # eclipse-temurin:17-jre-alpine
 FROM eclipse-temurin@sha256:c4a33e6ddb738fe4be0a28a613ea0940cec42d25d7263c3e2238c43354cb19b0 AS runtime
-# CVE-2026-111497 (HIGH): brotli-libs 1.2.0-r1 da base; corrigido na 1.2.1-r0. Remover quando o digest da base já trouxer a correção.
-RUN apk upgrade --no-cache brotli-libs \
+# CVEs HIGH do Alpine (brotli-libs, openssl, libexpat) presentes no digest da base; apk upgrade completo traz as correções. Revisar quando o digest da base já as incluir.
+RUN apk upgrade --no-cache \
     && addgroup -S -g 10001 oficina && adduser -S -D -u 10001 -G oficina oficina
 WORKDIR /app
 COPY --from=builder --chown=10001:10001 /app/target/billing-service-*.jar /app/app.jar
