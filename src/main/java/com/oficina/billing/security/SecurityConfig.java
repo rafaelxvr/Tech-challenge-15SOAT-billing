@@ -25,7 +25,10 @@ public class SecurityConfig {
                     a.requestMatchers(HttpMethod.POST, "/webhooks/mercadopago").permitAll();
                     a.anyRequest().authenticated();
                 })
-                .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                        // setStatus direto: sendError() redespacha para /error sem credencial e viraria 401.
+                        .accessDeniedHandler((request, response, negado) -> response.setStatus(HttpStatus.FORBIDDEN.value())))
                 .addFilterBefore(limitesWebhook, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new StaffJwtFilter(verifier), UsernamePasswordAuthenticationFilter.class);
         return http.build();
