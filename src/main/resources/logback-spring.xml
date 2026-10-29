@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Messages, arguments and stacks are never encoded; code emits stable event names and codes through MDC. -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp><timeZone>UTC</timeZone><fieldName>timestamp</fieldName></timestamp>
+                <pattern>
+                    <pattern>{"service":"billing-service","environment":"${OFICINA_ENVIRONMENT:-local}","level":"%level","message":"safe"}</pattern>
+                </pattern>
+                <mdc>
+                    <includeMdcKeyName>event_name</includeMdcKeyName>
+                    <includeMdcKeyName>error_code</includeMdcKeyName>
+                    <includeMdcKeyName>correlation_id</includeMdcKeyName>
+                    <includeMdcKeyName>traceparent</includeMdcKeyName>
+                    <includeMdcKeyName>saga_id</includeMdcKeyName>
+                    <includeMdcKeyName>os_id</includeMdcKeyName>
+                </mdc>
+            </providers>
+        </encoder>
+    </appender>
+    <root level="INFO"><appender-ref ref="JSON_CONSOLE"/></root>
+</configuration>

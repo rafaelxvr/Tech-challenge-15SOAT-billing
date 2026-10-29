@@ -1,0 +1,13 @@
+# Estende as regras padrão do Gitleaks. A única exceção é o segredo JWT de FIXTURE dos testes automatizados
+# (valor descartável, sem relação com qualquer ambiente; Kind e CI geram segredos aleatórios por execução).
+title = "billing-service"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Segredo JWT de fixture usado apenas em testes automatizados (src/test); target/ é saída de build"
+paths = [
+  '''(^|/)src/test/resources/application-test\.yml$''',
+  '''(^|/)target/''',
+]

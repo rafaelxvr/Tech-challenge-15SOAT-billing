@@ -1,0 +1,9 @@
+# Exceções do SCA com justificativa e revisão. Cada linha exige análise explícita; nada aqui é ignorado por padrão.
+#
+# CVE-2026-47884: RCE/SSRF no XsltView do Spring MVC. Não se aplica: o serviço é uma API JSON sem renderização de views
+# e sem XsltView; a correção existe somente no Spring Framework 7 (Spring Boot 4), salto fora do escopo desta fase.
+CVE-2026-47884
+# CVE-2026-47890: corrupção de stream em Server-Sent Events com fragmentos de view. Não se aplica: o serviço não usa
+# SSE nem views; correção apenas no Spring Framework 7. Rever junto com a migração para Spring Boot 4.
+# Revisão de ambas: 2026-11-17 (entrega da Fase 4).
+CVE-2026-47890
