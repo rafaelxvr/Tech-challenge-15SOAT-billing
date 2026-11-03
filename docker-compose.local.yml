@@ -1,0 +1,40 @@
+# Dependências locais para desenvolver o billing na própria máquina (perfil Spring `local`). Tudo em loopback.
+# Segredos vêm do `.env` (ignorado pelo Git); copie `.env.example` e preencha valores descartáveis.
+#   docker compose -f docker-compose.local.yml --env-file .env up -d --wait
+#   docker compose -f docker-compose.local.yml down -v
+services:
+  postgres-billing:
+    # postgres:16-alpine
+    image: postgres@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36
+    environment:
+      POSTGRES_DB: billing
+      POSTGRES_USER: billing_admin
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?defina em .env}
+      BILLING_MIGRATOR_PASSWORD: ${DB_MIGRATION_PASSWORD:?defina em .env}
+      BILLING_APP_PASSWORD: ${DB_PASSWORD:?defina em .env}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ./k8s/local-deps/postgres-init/01-roles.sh:/docker-entrypoint-initdb.d/01-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U billing_admin -d billing"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  localstack:
+    # localstack/localstack:3.8
+    image: localstack/localstack@sha256:b279c01f4cfb8f985a482e4014cabc1e2697b9d7a6c8c8db2e40f4d9f93687c7
+    environment:
+      SERVICES: sqs
+      DEBUG: "0"
+      DISABLE_EVENTS: "1"
+    ports:
+      - "127.0.0.1:4566:4566"
+    volumes:
+      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/01-filas.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal sqs list-queues | grep -q os-saga-replies.fifo"]
+      interval: 5s
+      timeout: 5s
+      retries: 30

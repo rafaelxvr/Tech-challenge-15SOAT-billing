@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Exclusões justificadas do SAST (SpotBugs + Find Security Bugs). Cada regra explica por que não é explorável aqui. -->
+<FindBugsFilter>
+    <!-- Colaboradores injetados por construtor (Spring) e records de DTO: "exposição de representação interna" é ruído
+         de qualidade; não há fronteira de confiança entre o bean e quem o injeta. -->
+    <Match><Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/></Match>
+    <!-- Construtores que validam argumentos e lançam: os beans são criados pelo Spring, sem subclasse não confiável. -->
+    <Match><Bug pattern="CT_CONSTRUCTOR_THROW"/></Match>
+    <!-- API stateless: sem sessão, sem cookie e autenticação por bearer token (SessionCreationPolicy.STATELESS),
+         portanto não há credencial ambiente que o navegador anexe automaticamente. CSRF não se aplica. -->
+    <Match>
+        <Class name="com.oficina.billing.security.SecurityConfig"/>
+        <Bug pattern="SPRING_CSRF_PROTECTION_DISABLED"/>
+    </Match>
+    <!-- Jitter de backoff de reenvio: aleatoriedade previsível é aceitável; não protege segredo nem identidade. -->
+    <Match>
+        <Class name="com.oficina.billing.adapter.out.messaging.BackoffPublicacao"/>
+        <Bug pattern="PREDICTABLE_RANDOM"/>
+    </Match>
+</FindBugsFilter>

@@ -1,0 +1,7 @@
+# Somente testes automatizados/BDD: gateway de pagamento fake. Nunca é evidência de pagamento real.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - path: perfil-fake.yaml

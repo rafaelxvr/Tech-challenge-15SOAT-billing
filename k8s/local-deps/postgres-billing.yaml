@@ -1,0 +1,59 @@
+# PostgreSQL 16 efêmero e exclusivo do billing (banco `billing`), separado do os-service.
+# Senhas: Secret `postgres-billing-credentials` criado por scripts/deploy-kind.sh a partir de variáveis de ambiente.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-billing
+  namespace: data
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: postgres-billing}
+  template:
+    metadata:
+      labels: {app: postgres-billing}
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: postgres
+          # postgres:16-alpine
+          image: postgres@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36
+          ports:
+            - {name: pg, containerPort: 5432}
+          env:
+            - {name: POSTGRES_DB, value: billing}
+            - {name: POSTGRES_USER, value: billing_admin}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: postgres-billing-credentials, key: admin_password}}
+            - name: BILLING_MIGRATOR_PASSWORD
+              valueFrom: {secretKeyRef: {name: postgres-billing-credentials, key: migrator_password}}
+            - name: BILLING_APP_PASSWORD
+              valueFrom: {secretKeyRef: {name: postgres-billing-credentials, key: app_password}}
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+          readinessProbe:
+            exec: {command: ["pg_isready", "-U", "billing_admin", "-d", "billing"]}
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: init, mountPath: /docker-entrypoint-initdb.d, readOnly: true}
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: init
+          configMap:
+            name: postgres-billing-init
+            defaultMode: 0555
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-billing
+  namespace: data
+spec:
+  selector: {app: postgres-billing}
+  ports:
+    - {name: pg, port: 5432, targetPort: pg}

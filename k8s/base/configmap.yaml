@@ -1,0 +1,20 @@
+# Valores não sensíveis do ambiente local/Kind. Segredos ficam no Secret `oficina-billing-secrets`
+# (criado fora de banda por scripts/deploy-kind.sh) e nunca neste repositório.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oficina-billing-config
+data:
+  DB_URL: jdbc:postgresql://postgres-billing.data.svc.cluster.local:5432/billing
+  DB_USERNAME: billing_app
+  DB_MIGRATION_USERNAME: billing_migrator
+  BILLING_SQS_ENDPOINT: http://localstack.infra.svc.cluster.local:4566
+  BILLING_FILA_COMANDOS: http://localstack.infra.svc.cluster.local:4566/000000000000/billing-commands.fifo
+  BILLING_FILA_RESPOSTAS: http://localstack.infra.svc.cluster.local:4566/000000000000/os-saga-replies.fifo
+  AWS_REGION: us-east-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  OFICINA_ENVIRONMENT: kind
+  JWT_STAFF_ISSUER: oficina-kind
+  JWT_STAFF_AUDIENCE: oficina-staff-kind
+  JWT_STAFF_KEY_ID: staff-kind

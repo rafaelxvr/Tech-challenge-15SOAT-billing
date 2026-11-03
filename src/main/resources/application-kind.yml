@@ -1,0 +1,16 @@
+# Perfil do cluster Kind efêmero (e do perfil `local` de desenvolvimento): tudo local, sem identidade AWS.
+# Valores sensíveis (senhas, MP_ACCESS_TOKEN, MP_WEBHOOK_SECRET, JWT_SECRET) chegam por variáveis de ambiente
+# injetadas fora de banda; nenhum valor real mora neste arquivo.
+spring:
+  flyway:
+    # Papel de migração (DDL) separado do papel de execução (DML). Vazio = usa o mesmo usuário do datasource.
+    user: ${DB_MIGRATION_USERNAME:${DB_USERNAME:billing_app}}
+    password: ${DB_MIGRATION_PASSWORD:${DB_PASSWORD:}}
+
+billing:
+  mensageria:
+    enabled: ${BILLING_MENSAGERIA_ENABLED:true}
+    region: ${AWS_REGION:us-east-1}
+    endpoint: ${BILLING_SQS_ENDPOINT:http://localstack.infra.svc.cluster.local:4566}
+    fila-comandos: ${BILLING_FILA_COMANDOS:http://localstack.infra.svc.cluster.local:4566/000000000000/billing-commands.fifo}
+    fila-respostas: ${BILLING_FILA_RESPOSTAS:http://localstack.infra.svc.cluster.local:4566/000000000000/os-saga-replies.fifo}

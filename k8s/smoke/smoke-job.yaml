@@ -1,0 +1,56 @@
+# Fumaça do deploy Kind: envia o fixture canônico GerarOrcamento pela fila de comandos e espera OrcamentoGerado na fila
+# de respostas. Só imprime tipos e resultado; nunca payloads. O envelope vem do ConfigMap `smoke-envelope`.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: billing-smoke
+  namespace: infra
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      containers:
+        - name: aws-cli
+          # amazon/aws-cli:2.17.0
+          image: amazon/aws-cli@sha256:643507c10ada7964ca6157b3d799f030b90577643da9955d319a77399ed80d73
+          env:
+            - {name: AWS_ACCESS_KEY_ID, value: test}
+            - {name: AWS_SECRET_ACCESS_KEY, value: test}
+            - {name: AWS_DEFAULT_REGION, value: us-east-1}
+            - {name: AWS_ENDPOINT_URL, value: "http://localstack.infra.svc.cluster.local:4566"}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              base="http://localstack.infra.svc.cluster.local:4566/000000000000"
+              arquivo=/envelope/GerarOrcamento.json
+              os_id=$(sed -n 's/.*"osId": *"\([^"]*\)".*/\1/p' "$arquivo" | head -1)
+              message_id=$(sed -n 's/.*"messageId": *"\([^"]*\)".*/\1/p' "$arquivo" | head -1)
+              aws sqs send-message --queue-url "${base}/billing-commands.fifo" --message-body "file://${arquivo}" \
+                --message-group-id "$os_id" --message-deduplication-id "$message_id" --query MessageId --output text >/dev/null
+              echo "comando GerarOrcamento enviado"
+              for tentativa in $(seq 1 30); do
+                corpo=$(aws sqs receive-message --queue-url "${base}/os-saga-replies.fifo" --wait-time-seconds 2 \
+                  --max-number-of-messages 1 --query 'Messages[0].Body' --output text 2>/dev/null || true)
+                if printf '%s' "$corpo" | grep -q '"type": *"OrcamentoGerado"'; then
+                  echo "resposta OrcamentoGerado recebida"
+                  exit 0
+                fi
+              done
+              echo "resposta OrcamentoGerado não recebida"
+              exit 1
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          volumeMounts:
+            - {name: envelope, mountPath: /envelope, readOnly: true}
+      volumes:
+        - name: envelope
+          configMap:
+            name: smoke-envelope
