@@ -1,0 +1,21 @@
+# Estende as regras padrão do Gitleaks. Exceções mínimas e auditáveis:
+# 1) segredo JWT de FIXTURE dos testes automatizados (valor descartável, sem relação com qualquer ambiente;
+#    Kind e CI geram segredos aleatórios por execução);
+# 2) (UNR-616) checksum SHA-256 público do agente Java do New Relic e chave fictícia do teste de entrypoint,
+#    restritos por linha.
+title = "billing-service"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fixture JWT de testes (src/test); target/ é saída de build; checksum público do agente New Relic e chave fictícia do teste de entrypoint"
+paths = [
+  '''(^|/)src/test/resources/application-test\.yml$''',
+  '''(^|/)target/''',
+]
+regexTarget = "line"
+regexes = [
+  '''NEW_RELIC_JAVA_AGENT_SHA256=[0-9a-f]{64}''',
+  '''NEW_RELIC_LICENSE_KEY=segredo-ficticio-123''',
+]
