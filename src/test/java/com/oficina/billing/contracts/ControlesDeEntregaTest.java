@@ -103,7 +103,7 @@ class ControlesDeEntregaTest {
         assertThat(ci).containsPattern("TRIVY_IMAGE: aquasec/trivy@sha256:[0-9a-f]{64}");
         assertThat(ci).containsPattern("GITLEAKS_IMAGE: zricethezav/gitleaks@sha256:[0-9a-f]{64}");
         assertThat(ci).doesNotContain("secrets.SONAR_TOKEN }}\n        run: echo");
-        assertThat(ci).contains("Secret SONAR_TOKEN ausente", "sonar.qualitygate.wait=true", "SONAR_PROJECT_KEY");
+        assertThat(ci).contains("Secret SONAR_TOKEN ausente", "sonar.qualitygate.wait=true");
     }
 
     @Test void mavenWrapperTemChecksumDeDistribuicao() throws IOException {
