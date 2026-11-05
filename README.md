@@ -141,7 +141,7 @@ Medido localmente na árvore do PR após as correções de revisão (UNR-130/UNR
 | Gitleaks (histórico e árvore) | 0 vazamentos; única exceção é o segredo JWT de fixture em `src/test` (`.gitleaks.toml`) |
 | Kind efêmero (`deploy-kind.sh up/verify/down`) | pod `1/1 Running`, `/billing/actuator/health` = `UP`, fumaça `GerarOrcamento -> OrcamentoGerado` recebida, imagem do SHA exato |
 
-Não medido aqui: SonarCloud, que o suplemento Local Kind exige (a execução depende do Rafael: habilite a variável de repositório `SONAR_ENABLED=true` e o segredo `SONAR_TOKEN`; sem isso o job fica `skipping`),
+Não medido aqui: SonarCloud, que o suplemento Local Kind exige (a execução depende do Rafael: habilite a variável de repositório `SONAR_ENABLED=true` e o segredo `SONAR_TOKEN`; com o gate habilitado e sem token o job falha, não pula),
 execução do workflow no GitHub e prova de pagamento real no sandbox (G5).
 
 ## Desvios em relação ao Plan 2
