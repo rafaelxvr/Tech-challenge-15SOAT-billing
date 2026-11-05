@@ -1,0 +1,17 @@
+# Overlay AWS Academy (Learner Lab) do billing. Offline: `kubectl kustomize k8s/overlays/aws`.
+# Sem LocalStack, sem credencial AWS no ConfigMap (credencial so pela role do no, default chain),
+# imagem GHCR por digest do manifesto de release (core: infra/aws-academy/release-manifest.json).
+# DB_URL, DB_USERNAME e URLs das filas SQS vem dos outputs do Terraform no apply (Secret/patch fora do repositorio).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - target:
+      kind: ConfigMap
+      name: oficina-billing-config
+    path: configmap-aws.json
+images:
+  - name: billing-service
+    newName: ghcr.io/rafaelxvr/oficina-billing-service
+    digest: sha256:304bbf5ef21094fa9c5c09bd4335a4185a2699171caad11c552fb0cac176aa48
