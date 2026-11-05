@@ -7,6 +7,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** O perfil `aws` monta o cliente SQS pela default chain; sem ele, o caminho local/LocalStack é preservado. */
@@ -16,6 +17,7 @@ class MensageriaConfigurationPerfilTest {
             .withPropertyValues("billing.mensageria.hosts-permitidos=127.0.0.1");
 
     @Test void perfilAwsUsaDefaultChainSemEndpointLocal() {
+        assumeTrue(EndpointsAmbientaisAwsTest.ambienteRealSemArquivoAwsAlternativo());
         runner.withPropertyValues("spring.profiles.active=aws").withBean(BillingProperties.class,
                         () -> new BillingProperties(null, null, new BillingProperties.Mensageria(true, "us-east-1", "", "c", "r")))
                 .run(ctx -> {
@@ -27,6 +29,7 @@ class MensageriaConfigurationPerfilTest {
     }
 
     @Test void perfilAwsFalhaSeEndpointForConfigurado() {
+        assumeTrue(EndpointsAmbientaisAwsTest.ambienteRealSemArquivoAwsAlternativo());
         runner.withPropertyValues("spring.profiles.active=aws").withBean(BillingProperties.class,
                         () -> new BillingProperties(null, null, new BillingProperties.Mensageria(true, "us-east-1", "http://127.0.0.1:4566", "c", "r")))
                 .run(ctx -> assertThat(ctx).getFailure().rootCause()

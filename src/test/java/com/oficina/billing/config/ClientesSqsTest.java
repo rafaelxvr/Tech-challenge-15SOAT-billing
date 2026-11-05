@@ -5,9 +5,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.profiles.ProfileFile;
 import software.amazon.awssdk.services.sqs.SqsClient;
 
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** Diferencia o cliente SQS local (LocalStack, test/test) do perfil aws (default credentials chain, sem endpoint). */
 class ClientesSqsTest {
     static final Set<String> HOSTS = Set.of("127.0.0.1");
+    static final Supplier<ProfileFile> VAZIO = () -> EndpointsAmbientaisAwsTest.arquivo("");
 
     static BillingProperties.Mensageria mensageria(String endpoint) {
         return new BillingProperties.Mensageria(true, "us-east-1", endpoint, "fila-c", "fila-r");
@@ -35,7 +38,7 @@ class ClientesSqsTest {
     }
 
     @Test void clienteAwsUsaDefaultCredentialsChainSemEndpoint() {
-        try (ClientesSqs clientes = ClientesSqs.criarAws(mensageria(""))) {
+        try (ClientesSqs clientes = ClientesSqs.criarAws(mensageria(""), chave -> null, chave -> null, VAZIO)) {
             for (SqsClient sqs : new SqsClient[] {clientes.envio(), clientes.recepcao()}) {
                 var config = sqs.serviceClientConfiguration();
                 assertThat(config.endpointOverride()).isEmpty();
@@ -46,14 +49,14 @@ class ClientesSqsTest {
     }
 
     @Test void clienteAwsRecusaEndpointConfigurado() {
-        assertThatThrownBy(() -> ClientesSqs.criarAws(mensageria("http://127.0.0.1:4566")))
+        assertThatThrownBy(() -> ClientesSqs.criarAws(mensageria("http://127.0.0.1:4566"), chave -> null, chave -> null, VAZIO))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("endpoint");
     }
 
     @ParameterizedTest @ValueSource(strings = {"AWS_ENDPOINT_URL", "AWS_ENDPOINT_URL_SQS"})
     void clienteAwsRecusaEndpointPorVariavelDeAmbiente(String nome) {
         UnaryOperator<String> env = chave -> nome.equals(chave) ? "http://127.0.0.1:4566" : null;
-        assertThatThrownBy(() -> ClientesSqs.criarAws(mensageria(""), env, chave -> null))
+        assertThatThrownBy(() -> ClientesSqs.criarAws(mensageria(""), env, chave -> null, VAZIO))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Perfil aws não aceita endpoint do SQS por variável de ambiente " + nome);
     }
@@ -61,20 +64,39 @@ class ClientesSqsTest {
     @ParameterizedTest @ValueSource(strings = {"aws.endpointUrl", "aws.endpointUrlSqs"})
     void clienteAwsRecusaEndpointPorSystemProperty(String nome) {
         UnaryOperator<String> props = chave -> nome.equals(chave) ? "http://127.0.0.1:4566" : null;
-        assertThatThrownBy(() -> ClientesSqs.criarAws(mensageria(""), chave -> null, props))
+        assertThatThrownBy(() -> ClientesSqs.criarAws(mensageria(""), chave -> null, props, VAZIO))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Perfil aws não aceita endpoint do SQS por system property " + nome);
     }
 
     @Test void mensagemDeEndpointAmbientalNaoVazaOValor() {
         UnaryOperator<String> env = chave -> "AWS_ENDPOINT_URL".equals(chave) ? "http://usuario:segredo@host" : null;
-        assertThatThrownBy(() -> ClientesSqs.criarAws(mensageria(""), env, chave -> null))
+        assertThatThrownBy(() -> ClientesSqs.criarAws(mensageria(""), env, chave -> null, VAZIO))
                 .hasMessageNotContaining("segredo");
     }
 
     @Test void clienteAwsIgnoraEndpointAmbientalEmBranco() {
-        try (ClientesSqs clientes = ClientesSqs.criarAws(mensageria(""), chave -> " ", chave -> "")) {
+        try (ClientesSqs clientes = ClientesSqs.criarAws(mensageria(""), chave -> " ", chave -> "", VAZIO)) {
             assertThat(clientes.envio().serviceClientConfiguration().endpointOverride()).isEmpty();
+        }
+    }
+
+    @Test void clienteAwsRecusaEndpointGlobalDoArquivoCompartilhado() {
+        Supplier<ProfileFile> arquivo = () -> EndpointsAmbientaisAwsTest.arquivo("[default]\nendpoint_url = http://segredo.exemplo\n");
+        assertThatThrownBy(() -> ClientesSqs.criarAws(mensageria(""), chave -> null, chave -> null, arquivo))
+                .isInstanceOf(IllegalStateException.class).hasMessageNotContaining("segredo");
+    }
+
+    @Test void clienteAwsRecusaArquivoAwsAlternativo() {
+        UnaryOperator<String> env = chave -> "AWS_CONFIG_FILE".equals(chave) ? "C:/segredo/config" : null;
+        assertThatThrownBy(() -> ClientesSqs.criarAws(mensageria(""), env, chave -> null, VAZIO))
+                .isInstanceOf(IllegalStateException.class).hasMessageNotContaining("segredo");
+    }
+
+    @Test void clienteLocalNaoEAfetadoPorArquivoAwsCompartilhado() {
+        // criar() (LocalStack) não consulta o arquivo AWS; só o perfil aws é fail-closed.
+        try (ClientesSqs clientes = ClientesSqs.criar(mensageria("http://127.0.0.1:4566"), HOSTS)) {
+            assertThat(clientes.envio().serviceClientConfiguration().endpointOverride()).isPresent();
         }
     }
 

@@ -7,6 +7,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
+import software.amazon.awssdk.profiles.ProfileFile;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.retries.StandardRetryStrategy;
 import software.amazon.awssdk.services.sqs.SqsClient;
@@ -15,6 +16,7 @@ import software.amazon.awssdk.utils.IoUtils;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 /**
@@ -41,14 +43,14 @@ public final class ClientesSqs implements AutoCloseable {
         return montar(http, Region.of(m.region()), credenciais, endpoint);
     }
 
-    /** Perfil `aws`: credenciais pela default chain do SDK; endpoint local e endpoints ambientais (env/system properties do SDK) são proibidos. */
+    /** Perfil `aws`: credenciais pela default chain do SDK; endpoint local, endpoints ambientais (env/system properties) e endpoint/arquivo AWS compartilhado são proibidos. */
     public static ClientesSqs criarAws(BillingProperties.Mensageria m) {
-        return criarAws(m, System::getenv, System::getProperty);
+        return criarAws(m, System::getenv, System::getProperty, ProfileFile::defaultProfileFile);
     }
 
     static ClientesSqs criarAws(BillingProperties.Mensageria m, UnaryOperator<String> variaveis,
-                                UnaryOperator<String> propriedades) {
-        EndpointsAmbientaisAws.exigirAusentes(variaveis, propriedades);
+                                UnaryOperator<String> propriedades, Supplier<ProfileFile> arquivosAws) {
+        EndpointsAmbientaisAws.exigirAusentes(variaveis, propriedades, arquivosAws);
         if (m.endpoint() != null && !m.endpoint().isBlank()) {
             throw new IllegalStateException("Perfil aws não aceita endpoint de mensageria customizado");
         }
