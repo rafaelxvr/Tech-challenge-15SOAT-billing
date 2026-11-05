@@ -92,7 +92,7 @@ jobs:
         run: |
           set +x
           docker run --rm -v "$PWD:/src:ro" "$TRIVY_IMAGE" fs --scanners vuln --severity HIGH,CRITICAL \
-            --ignore-unfixed --ignorefile /src/.trivyignore --exit-code 1 /src/pom.xml
+            --ignore-unfixed --ignorefile /src/.trivyignore.yaml --exit-code 1 /src/pom.xml
 
   kind-deploy:
     name: Deploy em Kind efêmero (SHA exato)
@@ -123,7 +123,7 @@ jobs:
           scan_dir="$(mktemp -d)"
           docker save "billing-service:${COMMIT_SHA}" -o "${scan_dir}/imagem.tar"
           docker run --rm -v "${scan_dir}:/work:ro" -v "$PWD:/src:ro" "$TRIVY_IMAGE" image --scanners vuln \
-            --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /src/.trivyignore --exit-code 1 --input /work/imagem.tar
+            --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /src/.trivyignore.yaml --exit-code 1 --input /work/imagem.tar
           rm -rf "$scan_dir"
 
       - name: Saúde do pod e fumaça de mensageria
@@ -196,6 +196,25 @@ jobs:
           images: ${{ steps.names.outputs.image_base }}
           tags: |
             type=sha,prefix=,format=long
+
+      # Scan da imagem ANTES do push (UNR-843): o Trivy fs sobre pom.xml não enxerga versões vindas do BOM
+      # do Spring Boot; só a imagem montada revela o classpath efetivo.
+      - name: Build da imagem para scan (sem push)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          push: false
+          load: true
+          tags: billing-scan:${{ github.sha }}
+
+      - name: Scan da imagem (Trivy image; falha em HIGH/CRITICAL com correção)
+        env:
+          IMAGE_REF: billing-scan:${{ github.sha }}
+        run: |
+          set +x
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/src:ro" "$TRIVY_IMAGE" image \
+            --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /src/.trivyignore.yaml \
+            --exit-code 1 "$IMAGE_REF"
 
       - name: Build e push
         id: build
