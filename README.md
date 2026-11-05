@@ -153,6 +153,10 @@ execução do workflow no GitHub e prova de pagamento real no sandbox (G5).
 - O teste de total do orçamento usa o preço unitário já arredondado a 2 casas (`0.335` → `0.34`), igual ao que o banco
   armazena em `NUMERIC(12,2)`, de modo que a soma das linhas é o total.
 
+## Recuperação operacional (runbook D19-R)
+
+Outbox `BLOCKED`, mensagens na DLQ, LocalStack/SQS fora e reconciliação de compensação são tratados no runbook único da Fase 4, mantido no os-service: arquivo `docs/runbooks/saga-recuperacao-d19r.md` do repositório `Tech-challenge-15SOAT` (os-service), na branch `develop` depois do merge do PR do os-service (UNR-620). Sem link para branch de PR, que deixa de existir após o merge. Exercitado em Kind com este serviço no SHA `17a37b9ad8d7e859c637b383fca265f8f734d6ca`.
+
 ## Branches e segredos
 
 `main` guarda código entregue; `develop` é a integração. Não versione credenciais: `.env` é ignorado e o CI recebe
