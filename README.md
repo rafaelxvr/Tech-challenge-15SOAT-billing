@@ -155,7 +155,7 @@ execução do workflow no GitHub e prova de pagamento real no sandbox (G5).
 
 ## Recuperação operacional (runbook D19-R)
 
-Outbox `BLOCKED`, mensagens na DLQ, LocalStack/SQS fora e reconciliação de compensação são tratados no runbook único da Fase 4, mantido no os-service: [saga-recuperacao-d19r.md](https://github.com/rafaelxvr/Tech-challenge-15SOAT/blob/docs/unr-620-runbook-d19r/docs/runbooks/saga-recuperacao-d19r.md) (o link passa a apontar para `develop` depois do merge do PR do os-service). Exercitado em Kind com este serviço no SHA `17a37b9ad8d7e859c637b383fca265f8f734d6ca`.
+Outbox `BLOCKED`, mensagens na DLQ, LocalStack/SQS fora e reconciliação de compensação são tratados no runbook único da Fase 4, mantido no os-service: arquivo `docs/runbooks/saga-recuperacao-d19r.md` do repositório `Tech-challenge-15SOAT` (os-service), na branch `develop` depois do merge do PR do os-service (UNR-620). Sem link para branch de PR, que deixa de existir após o merge. Exercitado em Kind com este serviço no SHA `17a37b9ad8d7e859c637b383fca265f8f734d6ca`.
 
 ## Branches e segredos
 
