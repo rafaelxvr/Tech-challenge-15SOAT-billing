@@ -15,6 +15,7 @@ import software.amazon.awssdk.utils.IoUtils;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 /**
  * Owns every SQS client. {@link #criar} is local-only (control S-3): the endpoint must be an approved LocalStack host
@@ -40,8 +41,14 @@ public final class ClientesSqs implements AutoCloseable {
         return montar(http, Region.of(m.region()), credenciais, endpoint);
     }
 
-    /** Perfil `aws`: credenciais pela default chain do SDK; endpoint local é proibido. */
+    /** Perfil `aws`: credenciais pela default chain do SDK; endpoint local e endpoints ambientais (env/system properties do SDK) são proibidos. */
     public static ClientesSqs criarAws(BillingProperties.Mensageria m) {
+        return criarAws(m, System::getenv, System::getProperty);
+    }
+
+    static ClientesSqs criarAws(BillingProperties.Mensageria m, UnaryOperator<String> variaveis,
+                                UnaryOperator<String> propriedades) {
+        EndpointsAmbientaisAws.exigirAusentes(variaveis, propriedades);
         if (m.endpoint() != null && !m.endpoint().isBlank()) {
             throw new IllegalStateException("Perfil aws não aceita endpoint de mensageria customizado");
         }
