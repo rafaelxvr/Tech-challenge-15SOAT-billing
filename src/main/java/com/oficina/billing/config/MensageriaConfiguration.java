@@ -7,27 +7,21 @@ import com.oficina.billing.adapter.out.messaging.SqsEnviadorMensagens;
 import com.oficina.billing.application.ExpiracaoPagamentosService;
 import com.oficina.billing.application.ProcessadorComandos;
 import com.oficina.billing.application.port.EnviadorMensagens;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.List;
-import java.util.Set;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = "billing.mensageria.enabled", havingValue = "true")
+@Import(MensageriaClientesConfiguration.class)
 public class MensageriaConfiguration {
-    @Bean(destroyMethod = "close") ClientesSqs clientesSqs(BillingProperties p,
-            @Value("${billing.mensageria.hosts-permitidos}") List<String> hostsPermitidos) {
-        return ClientesSqs.criar(p.mensageria(), Set.copyOf(hostsPermitidos));
-    }
-
     @Bean EnviadorMensagens enviadorMensagens(ClientesSqs clientes, BillingProperties p) {
         return new SqsEnviadorMensagens(clientes.envio(), p.mensageria().filaRespostas());
     }
