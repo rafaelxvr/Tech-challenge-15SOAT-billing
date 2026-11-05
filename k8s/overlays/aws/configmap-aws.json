@@ -3,7 +3,7 @@
   { "op": "remove", "path": "/data/DB_URL" },
   { "op": "remove", "path": "/data/DB_USERNAME" },
   { "op": "remove", "path": "/data/DB_MIGRATION_USERNAME" },
-  { "op": "replace", "path": "/data/BILLING_SQS_ENDPOINT", "value": "" },
+  { "op": "remove", "path": "/data/BILLING_SQS_ENDPOINT" },
   { "op": "remove", "path": "/data/BILLING_FILA_COMANDOS" },
   { "op": "remove", "path": "/data/BILLING_FILA_RESPOSTAS" },
   { "op": "remove", "path": "/data/AWS_ACCESS_KEY_ID" },
