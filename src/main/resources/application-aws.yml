@@ -1,6 +1,13 @@
 # Perfil AWS (AWS Academy / Learner Lab): o cliente SQS usa a default credentials provider chain do AWS SDK.
 # Sem endpoint local e sem credencial estática: nenhuma credencial mora neste arquivo.
 # Região e URLs das filas chegam por variáveis de ambiente injetadas pelo deploy.
+spring:
+  flyway:
+    # Papel de migração (DDL) separado do papel da aplicação (billing_app, sem DDL). Sem fallback:
+    # se as variáveis faltarem, o boot falha em vez de migrar com o usuário do datasource.
+    user: ${SPRING_FLYWAY_USER}
+    password: ${SPRING_FLYWAY_PASSWORD}
+
 billing:
   mensageria:
     enabled: ${BILLING_MENSAGERIA_ENABLED:true}

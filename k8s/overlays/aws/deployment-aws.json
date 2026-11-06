@@ -1,3 +1,13 @@
 [
-  { "op": "replace", "path": "/spec/template/spec/containers/0/env/0/value", "value": "aws" }
+  { "op": "replace", "path": "/spec/template/spec/containers/0/env/0/value", "value": "aws" },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/env/-",
+    "value": { "name": "SPRING_FLYWAY_USER", "valueFrom": { "secretKeyRef": { "name": "oficina-billing-secrets", "key": "db_migrator_username" } } }
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/env/-",
+    "value": { "name": "SPRING_FLYWAY_PASSWORD", "valueFrom": { "secretKeyRef": { "name": "oficina-billing-secrets", "key": "db_migrator_password" } } }
+  }
 ]

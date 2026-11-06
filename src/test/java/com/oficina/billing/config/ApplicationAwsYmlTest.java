@@ -19,4 +19,14 @@ class ApplicationAwsYmlTest {
         String texto = new String(new ClassPathResource("application-aws.yml").getInputStream().readAllBytes());
         assertThat(texto).doesNotContain("localstack", "127.0.0.1", "localhost", "test/test", "AKIA");
     }
+
+    /** Flyway migra com o papel migrador, sem herdar o usuário da aplicação (billing_app, sem DDL). */
+    @Test void flywayUsaApenasVariaveisDoMigradorSemFallback() {
+        var yaml = new YamlPropertiesFactoryBean();
+        yaml.setResources(new ClassPathResource("application-aws.yml"));
+        Properties props = yaml.getObject();
+        assertThat(props.getProperty("spring.flyway.user")).isEqualTo("${SPRING_FLYWAY_USER}");
+        assertThat(props.getProperty("spring.flyway.password")).isEqualTo("${SPRING_FLYWAY_PASSWORD}");
+        assertThat(props.stringPropertyNames()).noneMatch(k -> k.startsWith("spring.datasource."));
+    }
 }
