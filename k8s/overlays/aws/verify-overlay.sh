@@ -15,7 +15,12 @@ grep -q 'automountServiceAccountToken: false' <<<"$out" || fail "automountServic
 grep -qE "name: SPRING_PROFILES_ACTIVE" <<<"$out" && grep -qE "value: aws$" <<<"$out" || fail "perfil Spring aws ausente"
 # Flyway usa o papel migrador (Secret); o datasource segue em DB_USERNAME/DB_PASSWORD.
 for par in "SPRING_FLYWAY_USER:db_migrator_username" "SPRING_FLYWAY_PASSWORD:db_migrator_password"; do
-  grep -A5 -- "- name: ${par%%:*}\$" <<<"$out" | grep -q "key: ${par##*:}\$"     || fail "Flyway deve usar ${par%%:*} do Secret oficina-billing-secrets (${par##*:})"
+  var="${par%%:*}"; key="${par##*:}"
+  # bloco da variavel: nome + valueFrom.secretKeyRef.{key,name}; exige secretKeyRef (nao configMapKeyRef) e Secret correto
+  block="$(grep -A5 -- "- name: ${var}\$" <<<"$out" | head -n 6)"
+  grep -qE '^[[:space:]]+secretKeyRef:$' <<<"$block" || fail "${var} deve usar valueFrom.secretKeyRef"
+  grep -qE "^[[:space:]]+key: ${key}\$" <<<"$block" || fail "${var} deve usar a chave ${key}"
+  grep -qE '^[[:space:]]+name: oficina-billing-secrets$' <<<"$block" || fail "${var} deve vir do Secret oficina-billing-secrets"
 done
 ! grep -q "BILLING_SQS_ENDPOINT" <<<"$out" || fail "BILLING_SQS_ENDPOINT nao pode existir no perfil aws"
 grep -qE 'image: ghcr\.io/[^@ ]+@sha256:[0-9a-f]{64}' <<<"$out" || fail "imagem deve ser GHCR pinada por digest"
