@@ -65,6 +65,19 @@ class OutboxPublisherTest extends PostgresTeste {
         assertThat(p.publicarProximo()).isFalse();
     }
 
+    @Test void falhaDeBancoNaTransacaoAdiaNovaTentativaSemEnviar() {
+        var jdbcQuebrado = org.mockito.Mockito.spy(jdbc);
+        org.mockito.Mockito.doThrow(new org.springframework.dao.DataAccessResourceFailureException("indisponível"))
+                .when(jdbcQuebrado).execute(org.mockito.ArgumentMatchers.startsWith("SET LOCAL statement_timeout"));
+        var p = new OutboxPublisher(jdbcQuebrado, transaction, (osId, messageId, corpo) -> {
+            enviados.add(messageId);
+            return "sqs-" + messageId;
+        }, Clock.fixed(T, ZoneOffset.UTC), new BackoffPublicacao(b -> 0));
+        assertThat(p.publicarProximo()).isFalse();
+        assertThat(p.publicarProximo()).isFalse();
+        assertThat(enviados).isEmpty();
+    }
+
     @Test void escritaExigeTransacaoELimiteDeTamanho() {
         UUID os = UUID.randomUUID();
         assertThatThrownBy(() -> outbox.registrar(resposta(os, "OrcamentoGerado")))

@@ -49,7 +49,7 @@ public class FiltroLimitesWebhook extends OncePerRequestFilter {
     private static void rejeitar(HttpServletResponse response, int status, String codigo) {
         MDC.put("event_name", "mercadopago_webhook_rejeitado");
         MDC.put("error_code", codigo);
-        try { LOG.warn("safe"); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
+        try { LOG.warn("Webhook do Mercado Pago rejeitado pelos limites de requisição"); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
         response.setStatus(status);
     }
 }

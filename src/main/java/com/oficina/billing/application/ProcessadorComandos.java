@@ -54,7 +54,7 @@ public class ProcessadorComandos {
 
     private static void registrar(String evento) {
         MDC.put("event_name", evento);
-        try { LOG.info(""); } finally { MDC.remove("event_name"); }
+        try { LOG.info("Comando de billing tratado: {}", evento); } finally { MDC.remove("event_name"); }
     }
 
     private static void restaurar(String chave, String valor) {

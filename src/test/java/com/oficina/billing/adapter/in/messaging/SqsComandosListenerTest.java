@@ -39,6 +39,23 @@ class SqsComandosListenerTest {
         verify(sqs, times(1)).deleteMessage(any(DeleteMessageRequest.class));
     }
 
+    @Test void falhaNaRecepcaoDoLoteNaoDerrubaOLoopDeConsumo() throws Exception {
+        var segundaChamada = new java.util.concurrent.CountDownLatch(1);
+        when(sqs.receiveMessage(any(ReceiveMessageRequest.class)))
+                .thenThrow(new IllegalStateException("fila indisponível"))
+                .thenAnswer(inv -> {
+                    segundaChamada.countDown();
+                    return ReceiveMessageResponse.builder().build();
+                });
+        listener.start();
+        try {
+            assertThat(segundaChamada.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        } finally {
+            listener.stop();
+        }
+        assertThat(listener.isRunning()).isFalse();
+    }
+
     @Test void pedeAtributoDeGrupoELongPolling() {
         when(sqs.receiveMessage(any(ReceiveMessageRequest.class))).thenReturn(ReceiveMessageResponse.builder().build());
         listener.receberUmLote();

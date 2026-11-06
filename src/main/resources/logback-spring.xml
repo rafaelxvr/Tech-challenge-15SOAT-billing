@@ -1,13 +1,97 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- Messages, arguments and stacks are never encoded; code emits stable event names and codes through MDC. -->
+    <!-- Formatted message is emitted, then masked: structured fields by name, free text by value (single mask). Stacks and exception messages are never encoded. -->
     <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <jsonGeneratorDecorator class="net.logstash.logback.mask.MaskingJsonGeneratorDecorator">
+                <defaultMask>[REDACTED]</defaultMask>
+                <!-- By field name (any level): authorization, cookie, password/senha, secret/segredo, token, api_key, client_secret, checkout_url, cpf, email, phone/telefone. -->
+                <path>ACCESS_TOKEN</path>
+                <path>APIKEY</path>
+                <path>API_KEY</path>
+                <path>AUTHORIZATION</path>
+                <path>Access_token</path>
+                <path>Api_key</path>
+                <path>Apikey</path>
+                <path>Authorization</path>
+                <path>CHECKOUTURL</path>
+                <path>CHECKOUT_URL</path>
+                <path>CLIENT_SECRET</path>
+                <path>COOKIE</path>
+                <path>CPF</path>
+                <path>Checkout_url</path>
+                <path>Checkouturl</path>
+                <path>Client_secret</path>
+                <path>Cookie</path>
+                <path>Cpf</path>
+                <path>EMAIL</path>
+                <path>Email</path>
+                <path>PASSWORD</path>
+                <path>PHONE</path>
+                <path>Password</path>
+                <path>Phone</path>
+                <path>REFRESH_TOKEN</path>
+                <path>Refresh_token</path>
+                <path>SECRET</path>
+                <path>SEGREDO</path>
+                <path>SENHA</path>
+                <path>SET-COOKIE</path>
+                <path>Secret</path>
+                <path>Segredo</path>
+                <path>Senha</path>
+                <path>Set-cookie</path>
+                <path>TELEFONE</path>
+                <path>TOKEN</path>
+                <path>Telefone</path>
+                <path>Token</path>
+                <path>access-token</path>
+                <path>accessToken</path>
+                <path>access_token</path>
+                <path>api-key</path>
+                <path>apiKey</path>
+                <path>api_key</path>
+                <path>apikey</path>
+                <path>authorization</path>
+                <path>checkout-url</path>
+                <path>checkoutUrl</path>
+                <path>checkout_url</path>
+                <path>checkouturl</path>
+                <path>client-secret</path>
+                <path>clientSecret</path>
+                <path>client_secret</path>
+                <path>cookie</path>
+                <path>cpf</path>
+                <path>email</path>
+                <path>password</path>
+                <path>phone</path>
+                <path>refresh-token</path>
+                <path>refreshToken</path>
+                <path>refresh_token</path>
+                <path>secret</path>
+                <path>segredo</path>
+                <path>senha</path>
+                <path>set-cookie</path>
+                <path>setCookie</path>
+                <path>telefone</path>
+                <path>token</path>
+                <!-- By value inside free text (bounded regexes). -->
+                <value>(?i)\b(?:bearer|basic|digest)\s{1,4}[A-Za-z0-9._~+/=-]{1,2048}</value>
+                <value>\beyJ[A-Za-z0-9_-]{1,2048}\.[A-Za-z0-9_-]{1,2048}\.[A-Za-z0-9_-]{0,2048}</value>
+                <value>(?i)(?&lt;![A-Za-z0-9])[A-Za-z0-9_-]{0,40}(?:authorization|cookie|password|senha|secret|segredo|token|api[_-]?key|secret[_-]?key|private[_-]?key|jwt|checkout[_-]?url)[A-Za-z0-9_-]{0,40}["']?\s{0,3}[=:]\s{0,3}(?:"[^"]{0,512}"|'[^']{0,512}'|[^\s"',;\x7D]{1,512})</value>
+                <value>(?:AKIA|ASIA)[0-9A-Z]{16}</value>
+                <value>\b(?:APP_USR|TEST)-[A-Za-z0-9-]{8,256}</value>
+                <value>[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){1,4}</value>
+                <value>(?&lt;![\w-])\d{3}\.\d{3}\.\d{3}-\d{2}(?![\w-])</value>
+                <value>(?&lt;![\w.-])\d{11}(?![\w.-])</value>
+                <value>(?&lt;![\w-])(?:\+?55[\s.-]?)?(?:\(\d{2}\)|\d{2})[\s.-]?9?\d{4}[\s.-]?\d{4}(?![\w-])</value>
+            </jsonGeneratorDecorator>
             <providers>
                 <timestamp><timeZone>UTC</timeZone><fieldName>timestamp</fieldName></timestamp>
                 <pattern>
-                    <pattern>{"service":"billing-service","environment":"${OFICINA_ENVIRONMENT:-local}","level":"%level","message":"safe"}</pattern>
+                    <pattern>{"service":"billing-service","environment":"${OFICINA_ENVIRONMENT:-local}","level":"%level"}</pattern>
                 </pattern>
+                <loggerName/>
+                <message/>
                 <mdc>
                     <includeMdcKeyName>event_name</includeMdcKeyName>
                     <includeMdcKeyName>error_code</includeMdcKeyName>
@@ -19,5 +103,7 @@
             </providers>
         </encoder>
     </appender>
+    <!-- Hibernate echoes constraint details (Key (col)=(value)) in free text: silenced; the app logs its own stable message. -->
+    <logger name="org.hibernate.engine.jdbc.spi.SqlExceptionHelper" level="OFF"/>
     <root level="INFO"><appender-ref ref="JSON_CONSOLE"/></root>
 </configuration>

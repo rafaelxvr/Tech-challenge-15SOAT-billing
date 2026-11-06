@@ -1,0 +1,2 @@
+# Achado histórico (UNR-935): sentinela fictícia AKIA no commit c2573ff, removida do tip no commit seguinte. Supressão só por fingerprint.
+c2573ff928047820fbbdfb4a938d8f96e6df9c1d:src/test/java/com/oficina/billing/logging/LogbackJsonRedacaoTest.java:aws-access-token:91

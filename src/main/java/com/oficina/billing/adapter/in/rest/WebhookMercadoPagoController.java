@@ -31,7 +31,7 @@ public class WebhookMercadoPagoController {
             // Counted by the "Webhooks Mercado Pago rejeitados" widget (Plan 4 Task 5, decision D14); no header values logged.
             MDC.put("event_name", "mercadopago_webhook_rejeitado");
             MDC.put("error_code", "WEBHOOK_SIGNATURE_INVALID");
-            try { LOG.warn("safe"); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
+            try { LOG.warn("Webhook do Mercado Pago rejeitado: assinatura inválida"); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
             return ResponseEntity.status(401).build();
         }
         if (dedup.jaProcessado(xRequestId, dataId)) return ResponseEntity.ok().build();
