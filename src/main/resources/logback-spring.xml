@@ -75,10 +75,11 @@
                 <path>telefone</path>
                 <path>token</path>
                 <!-- By value inside free text (bounded regexes). -->
-                <value>(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}</value>
-                <value>\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*</value>
-                <value>(?i)\b(?:authorization|cookie|password|senha|secret|segredo|access_token|refresh_token|token|api[_-]?key|client[_-]?secret|checkout[_-]?url)["']?\s*[:=]\s*["']?[^\s,;"'\x7D]{1,256}</value>
-                <value>\b(?:APP_USR|TEST)-[A-Za-z0-9-]{8,128}</value>
+                <value>(?i)\b(?:bearer|basic|digest)\s{1,4}[A-Za-z0-9._~+/=-]{1,2048}</value>
+                <value>\beyJ[A-Za-z0-9_-]{1,2048}\.[A-Za-z0-9_-]{1,2048}\.[A-Za-z0-9_-]{0,2048}</value>
+                <value>(?i)(?&lt;![A-Za-z0-9])[A-Za-z0-9_-]{0,40}(?:authorization|cookie|password|senha|secret|segredo|token|api[_-]?key|secret[_-]?key|private[_-]?key|jwt|checkout[_-]?url)[A-Za-z0-9_-]{0,40}["']?\s{0,3}[=:]\s{0,3}(?:"[^"]{0,512}"|'[^']{0,512}'|[^\s"',;\x7D]{1,512})</value>
+                <value>(?:AKIA|ASIA)[0-9A-Z]{16}</value>
+                <value>\b(?:APP_USR|TEST)-[A-Za-z0-9-]{8,256}</value>
                 <value>[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){1,4}</value>
                 <value>(?&lt;![\w-])\d{3}\.\d{3}\.\d{3}-\d{2}(?![\w-])</value>
                 <value>(?&lt;![\w.-])\d{11}(?![\w.-])</value>
@@ -89,6 +90,7 @@
                 <pattern>
                     <pattern>{"service":"billing-service","environment":"${OFICINA_ENVIRONMENT:-local}","level":"%level"}</pattern>
                 </pattern>
+                <loggerName/>
                 <message/>
                 <mdc>
                     <includeMdcKeyName>event_name</includeMdcKeyName>
@@ -101,5 +103,7 @@
             </providers>
         </encoder>
     </appender>
+    <!-- Hibernate echoes constraint details (Key (col)=(value)) in free text: silenced; the app logs its own stable message. -->
+    <logger name="org.hibernate.engine.jdbc.spi.SqlExceptionHelper" level="OFF"/>
     <root level="INFO"><appender-ref ref="JSON_CONSOLE"/></root>
 </configuration>

@@ -82,6 +82,13 @@ class LogbackJsonRedacaoTest {
                 "11144477735",
                 "(11) 91234-5678",
                 "+55 11 91234-5678",
+                "Authorization: Basic c2VudGluZWxhOmZpY3RpY2lh",
+                "id_token=sentinela-id-ficticio",
+                "DB_PASSWORD=sentinela-banco-ficticio",
+                "jwt_secret=sentinela-jwt-ficticio",
+                "secretKey=sentinela-chave-ficticia",
+                "access_token=sentinela-acesso-ficticio",
+                "AKIAABCDEFGHIJKLMNOP",
         };
         for (String sentinela : sentinelas) {
             JsonNode json = emitir(false, "antes " + sentinela + " depois");
@@ -91,6 +98,36 @@ class LogbackJsonRedacaoTest {
             assertThat(texto).as(sentinela).doesNotContain("sentinela").doesNotContain("titular").doesNotContain("1234")
                     .doesNotContain("111.444").doesNotContain("11144477735").doesNotContain("eyJ");
         }
+    }
+
+    @Test
+    void mascaraValorEntreAspasComEspacoSemDeixarCauda() throws Exception {
+        String texto = emitir(false, "antes password=\"sentinela a b\" e senha='sentinela c d' depois").get("message").asText();
+
+        assertThat(texto).isEqualTo("antes " + MASCARA + " e " + MASCARA + " depois");
+    }
+
+    @Test
+    void silenciaMensagensDoSqlExceptionHelperQueEcoamValoresDeRestricao() throws Exception {
+        String saida = emitirLinha("org.hibernate.engine.jdbc.spi.SqlExceptionHelper", false,
+                "Detail: Key (placa)=(SENT1234) already exists.");
+
+        assertThat(saida).isEmpty();
+    }
+
+    @Test
+    void incluiNomeDoLoggerParaDiagnostico() throws Exception {
+        assertThat(emitir(false, "mensagem estavel").get("logger_name").asText()).isEqualTo("teste.redacao");
+    }
+
+    @Test
+    void mascaraEntradaGrandeComPrefixosDeSegredoEmTempoLimitado() {
+        String hostil = "a_".repeat(10_000) + "password " + "token=".repeat(3_000) + "Bearer " + "x".repeat(20_000);
+
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            JsonNode json = emitir(false, hostil);
+            assertThat(json.get("message").asText()).contains(MASCARA);
+        });
     }
 
     @Test
@@ -141,6 +178,12 @@ class LogbackJsonRedacaoTest {
 
     /** {@code comArguments} acrescenta o provider {@code <arguments/>} ao XML real só para provar a máscara por caminho. */
     private static JsonNode emitir(boolean comArguments, String formato, Object... args) throws Exception {
+        String linha = emitirLinha("teste.redacao", comArguments, formato, args);
+        assertThat(linha.lines().count()).as("uma linha JSON por evento").isEqualTo(1);
+        return JSON.readTree(linha);
+    }
+
+    private static String emitirLinha(String nomeLogger, boolean comArguments, String formato, Object... args) throws Exception {
         String xml;
         try (InputStream in = LogbackJsonRedacaoTest.class.getResourceAsStream("/logback-spring.xml")) {
             assertThat(in).as("logback-spring.xml no classpath").isNotNull();
@@ -158,14 +201,12 @@ class LogbackJsonRedacaoTest {
             JoranConfigurator configurador = new JoranConfigurator();
             configurador.setContext(contexto);
             configurador.doConfigure(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
-            Logger logger = contexto.getLogger("teste.redacao");
+            Logger logger = contexto.getLogger(nomeLogger);
             logger.warn(formato, args);
         } finally {
             contexto.stop();
             System.setOut(original);
         }
-        String linha = saida.toString(StandardCharsets.UTF_8).strip();
-        assertThat(linha.lines().count()).as("uma linha JSON por evento").isEqualTo(1);
-        return JSON.readTree(linha);
+        return saida.toString(StandardCharsets.UTF_8).strip();
     }
 }
