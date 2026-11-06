@@ -45,7 +45,7 @@ public class SqsComandosListener implements SmartLifecycle {
                 if (grupo != null) gruposComFalha.add(grupo);
                 MDC.put("event_name", "billing_comando_falhou");
                 MDC.put("error_code", e.getClass().getSimpleName());
-                try { LOG.warn(""); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
+                try { LOG.warn("Falha ao processar comando recebido da fila de billing"); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
             }
         }
         return processadas;
@@ -65,7 +65,7 @@ public class SqsComandosListener implements SmartLifecycle {
                     receberUmLote();
                 } catch (RuntimeException e) {
                     MDC.put("event_name", "billing_recepcao_falhou");
-                    try { LOG.warn(""); } finally { MDC.remove("event_name"); }
+                    try { LOG.warn("Falha ao receber lote de comandos da fila de billing"); } finally { MDC.remove("event_name"); }
                     dormir();
                 }
             }

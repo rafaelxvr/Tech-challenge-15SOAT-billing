@@ -78,7 +78,7 @@ public class OutboxPublisher {
             databaseRetryAt = clock.instant().plusSeconds(5);
             MDC.put("event_name", "billing_outbox_publish_failed");
             MDC.put("error_code", "OUTBOX_TRANSACTION_FAILED");
-            try { LOG.warn(""); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
+            try { LOG.warn("Falha na transação de publicação do outbox de billing"); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
             return false;
         }
     }
