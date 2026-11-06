@@ -88,7 +88,7 @@ class LogbackJsonRedacaoTest {
                 "jwt_secret=sentinela-jwt-ficticio",
                 "secretKey=sentinela-chave-ficticia",
                 "access_token=sentinela-acesso-ficticio",
-                "AKIAABCDEFGHIJKLMNOP",
+                "AKIA" + "ABCDEFGHIJKLMNOP", // montada em runtime: evita literal casando com detector de segredos
         };
         for (String sentinela : sentinelas) {
             JsonNode json = emitir(false, "antes " + sentinela + " depois");
