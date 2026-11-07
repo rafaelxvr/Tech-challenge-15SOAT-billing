@@ -71,11 +71,11 @@ public class ConfirmacaoPagamentoService {
     private static void registrarErro(String evento, String codigo) {
         MDC.put("event_name", evento);
         MDC.put("error_code", codigo);
-        try { LOG.warn("safe"); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
+        try { LOG.warn("Erro de billing registrado: {} ({})", evento, codigo); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
     }
 
     private static void registrar(String evento) {
         MDC.put("event_name", evento);
-        try { LOG.info(""); } finally { MDC.remove("event_name"); }
+        try { LOG.info("Evento de billing registrado: {}", evento); } finally { MDC.remove("event_name"); }
     }
 }

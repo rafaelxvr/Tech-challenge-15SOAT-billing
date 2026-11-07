@@ -137,11 +137,11 @@ Medido localmente na árvore do PR após as correções de revisão (UNR-130/UNR
 | `./mvnw verify` | 226 testes, 0 falhas, 0 ignorados |
 | JaCoCo (linhas; exclui `config`, `*Application*`, `dto`) | 96,22% (739/768); regra de build ≥ 80% |
 | SAST SpotBugs + Find Security Bugs (limiar Medium) | 0 achados, com exclusões justificadas em `spotbugs-exclude.xml` |
-| Trivy fs (`pom.xml`) e imagem (HIGH/CRITICAL com correção) | 0 achados, com exceções justificadas em `.trivyignore` |
+| Trivy fs (`pom.xml`) e imagem (HIGH/CRITICAL com correção) | 0 achados, com exceções justificadas em `.trivyignore.yaml` |
 | Gitleaks (histórico e árvore) | 0 vazamentos; única exceção é o segredo JWT de fixture em `src/test` (`.gitleaks.toml`) |
 | Kind efêmero (`deploy-kind.sh up/verify/down`) | pod `1/1 Running`, `/billing/actuator/health` = `UP`, fumaça `GerarOrcamento -> OrcamentoGerado` recebida, imagem do SHA exato |
 
-Não medido aqui: SonarCloud, que o suplemento Local Kind exige (a execução depende do Rafael: habilite a variável de repositório `SONAR_ENABLED=true` e o segredo `SONAR_TOKEN`; sem isso o job fica `skipping`),
+Não medido aqui: SonarCloud, que o suplemento Local Kind exige (a execução depende do Rafael: habilite a variável de repositório `SONAR_ENABLED=true` e o segredo `SONAR_TOKEN`; com o gate habilitado e sem token o job falha, não pula),
 execução do workflow no GitHub e prova de pagamento real no sandbox (G5).
 
 ## Desvios em relação ao Plan 2
@@ -152,6 +152,10 @@ execução do workflow no GitHub e prova de pagamento real no sandbox (G5).
 - `scripts/deploy-kind.sh` (bash, também usado no CI Ubuntu) no lugar de `deploy-kind.ps1`.
 - O teste de total do orçamento usa o preço unitário já arredondado a 2 casas (`0.335` → `0.34`), igual ao que o banco
   armazena em `NUMERIC(12,2)`, de modo que a soma das linhas é o total.
+
+## Recuperação operacional (runbook D19-R)
+
+Outbox `BLOCKED`, mensagens na DLQ, LocalStack/SQS fora e reconciliação de compensação são tratados no runbook único da Fase 4, mantido no os-service: arquivo `docs/runbooks/saga-recuperacao-d19r.md` do repositório `Tech-challenge-15SOAT` (os-service), na branch `develop` depois do merge do PR do os-service (UNR-620). Sem link para branch de PR, que deixa de existir após o merge. Exercitado em Kind com este serviço no SHA `17a37b9ad8d7e859c637b383fca265f8f734d6ca`.
 
 ## Branches e segredos
 

@@ -53,7 +53,7 @@ public class EstornarPagamentoUseCase implements ManipuladorComando {
             } catch (GatewayIndisponivelException e) {
                 MDC.put("event_name", "billing_estorno_falhou");
                 MDC.put("error_code", e.codigo());
-                try { LOG.warn(""); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
+                try { LOG.warn("Falha ao estornar pagamento no gateway; compensação reportada como falha"); } finally { MDC.remove("event_name"); MDC.remove("error_code"); }
                 emissor.emitir(origem, TipoResposta.COMPENSACAO_FALHOU, PayloadsResposta.compensacaoFalhou("EstornarPagamento"));
                 return;
             }
