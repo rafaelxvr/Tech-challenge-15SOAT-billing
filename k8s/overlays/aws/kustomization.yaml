@@ -18,4 +18,4 @@ patches:
 images:
   - name: billing-service
     newName: ghcr.io/rafaelxvr/oficina-billing-service
-    digest: sha256:6097c2c72266be158c181b2fb03874ff3c4b716f3af253c229aee30ad899be51
+    digest: sha256:0d7ef41cdd4f97a7dafdb21396da3365bd594de26bb9c76b9a4fb51cb33afe6c
