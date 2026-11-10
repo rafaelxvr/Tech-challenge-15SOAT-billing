@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Import({GerarOrcamentoUseCase.class, RegistrarDecisaoUseCase.class, EmissorRespostas.class, FabricaRespostas.class,
-        JdbcOutbox.class, MapeadorMensagens.class, ApoioCasosDeUso.class})
+        JdbcOutbox.class, com.oficina.billing.adapter.out.observability.NewRelicPropagadorTraco.class, MapeadorMensagens.class, ApoioCasosDeUso.class})
 class RegistrarDecisaoUseCaseTest extends PostgresTeste {
     @Autowired GerarOrcamentoUseCase gerar;
     @Autowired RegistrarDecisaoUseCase decidir;

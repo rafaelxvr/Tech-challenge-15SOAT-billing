@@ -8,6 +8,7 @@ import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 import software.amazon.awssdk.services.sqs.model.SendMessageResponse;
 
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,9 +24,11 @@ class SqsEnviadorMensagensTest {
 
     @AfterEach void limpar() { MDC.remove("traceparent"); }
 
-    private SendMessageRequest enviar() {
+    private SendMessageRequest enviar() { return enviar(Map.of()); }
+
+    private SendMessageRequest enviar(Map<String, String> traco) {
         when(sqs.sendMessage(any(SendMessageRequest.class))).thenReturn(SendMessageResponse.builder().messageId("m1").build());
-        assertThat(enviador.enviar(UUID.randomUUID(), UUID.randomUUID(), "{}")).isEqualTo("m1");
+        assertThat(enviador.enviar(UUID.randomUUID(), UUID.randomUUID(), "{}", traco)).isEqualTo("m1");
         var captor = ArgumentCaptor.forClass(SendMessageRequest.class);
         verify(sqs).sendMessage(captor.capture());
         return captor.getValue();
@@ -45,5 +48,18 @@ class SqsEnviadorMensagensTest {
     @Test void descartaTraceparentMalformado() {
         MDC.put("traceparent", "00-malformado X-Injetado: 1");
         assertThat(enviar().messageAttributes()).isEmpty();
+    }
+
+    @Test void propagaOCarrierPersistidoComoAtributosDaMensagem() {
+        var req = enviar(Map.of("traceparent", TRACEPARENT, "tracestate", "123@nr=0-0-1-2-3", "newrelic", "eyJ2IjpbMCwxXX0="));
+        assertThat(req.messageAttributes()).containsOnlyKeys("traceparent", "tracestate", "newrelic");
+        assertThat(req.messageAttributes().get("tracestate").stringValue()).isEqualTo("123@nr=0-0-1-2-3");
+    }
+
+    @Test void carrierPersistidoTemPrecedenciaSobreOMdcEDescartaNomesDesconhecidos() {
+        MDC.put("traceparent", "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01");
+        var req = enviar(Map.of("traceparent", TRACEPARENT, "email", "x@y.z"));
+        assertThat(req.messageAttributes()).containsOnlyKeys("traceparent");
+        assertThat(req.messageAttributes().get("traceparent").stringValue()).isEqualTo(TRACEPARENT);
     }
 }

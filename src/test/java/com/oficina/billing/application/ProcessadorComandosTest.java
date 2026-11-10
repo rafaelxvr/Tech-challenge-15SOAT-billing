@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Import({ProcessadorComandos.class, RoteadorComandos.class, JdbcInbox.class, GerarOrcamentoUseCase.class,
         RegistrarDecisaoUseCase.class, CancelarOrcamentoUseCase.class, EstornarPagamentoUseCase.class,
-        EmissorRespostas.class, FabricaRespostas.class, JdbcOutbox.class, MapeadorMensagens.class, ApoioCasosDeUso.class})
+        EmissorRespostas.class, FabricaRespostas.class, JdbcOutbox.class, com.oficina.billing.adapter.out.observability.NewRelicPropagadorTraco.class, MapeadorMensagens.class, ApoioCasosDeUso.class})
 class ProcessadorComandosTest extends PostgresTeste {
     @Autowired ProcessadorComandos processador;
     @Autowired MapeadorMensagens mapeador;
