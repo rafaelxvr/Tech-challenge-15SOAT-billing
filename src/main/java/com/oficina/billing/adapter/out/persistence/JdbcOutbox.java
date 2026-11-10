@@ -1,6 +1,8 @@
 package com.oficina.billing.adapter.out.persistence;
 
 import com.oficina.billing.application.port.SaidaMensagensPort;
+import com.oficina.billing.application.rastreio.CarrierRastreio;
+import com.oficina.billing.application.rastreio.PropagadorTraco;
 import com.oficina.billing.mensagem.Envelope;
 import com.oficina.billing.mensagem.MapeadorMensagens;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 public class JdbcOutbox implements SaidaMensagensPort {
     private final JdbcTemplate jdbc;
     private final MapeadorMensagens mapeador;
+    private final PropagadorTraco propagador;
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
@@ -24,7 +27,9 @@ public class JdbcOutbox implements SaidaMensagensPort {
         if (corpo.getBytes(StandardCharsets.UTF_8).length > Envelope.MAX_BYTES) {
             throw new IllegalArgumentException("Envelope acima de 64 KB");
         }
+        // Capturado aqui, dentro da transação consumidora, para o poller continuar este trace em vez de abrir outro.
+        String armazenado = CarrierRastreio.embutir(corpo, propagador.capturar(), Envelope.MAX_BYTES);
         jdbc.update("INSERT INTO outbox(message_id, os_id, tipo, envelope) VALUES (?,?,?,?::jsonb)",
-                envelope.messageId(), envelope.osId(), envelope.type(), corpo);
+                envelope.messageId(), envelope.osId(), envelope.type(), armazenado);
     }
 }

@@ -20,6 +20,7 @@
     <properties>
         <java.version>17</java.version>
         <aws.sdk.version>2.54.18</aws.sdk.version>
+        <newrelic.api.version>9.4.0</newrelic.api.version>
         <testcontainers.version>1.19.8</testcontainers.version>
         <jacoco.version>0.8.11</jacoco.version>
         <!-- pgjdbc: CVE-2026-42198 e CVE-2026-54291; sobrepõe a versão gerenciada pelo Spring Boot -->
@@ -144,6 +145,12 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
+        </dependency>
+        <!-- Mesma versão do agente fixado no Dockerfile; sem o agente anexado, toda chamada é no-op. -->
+        <dependency>
+            <groupId>com.newrelic.agent.java</groupId>
+            <artifactId>newrelic-api</artifactId>
+            <version>${newrelic.api.version}</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>

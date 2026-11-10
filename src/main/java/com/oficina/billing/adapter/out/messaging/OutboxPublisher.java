@@ -1,6 +1,7 @@
 package com.oficina.billing.adapter.out.messaging;
 
 import com.oficina.billing.application.port.EnviadorMensagens;
+import com.oficina.billing.application.rastreio.CarrierRastreio;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -11,6 +12,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -18,7 +20,7 @@ import java.util.UUID;
 public class OutboxPublisher {
     private static final Logger LOG = LoggerFactory.getLogger(OutboxPublisher.class);
     private static final String CLAIM = """
-            SELECT o.message_id, o.os_id, o.envelope::text AS corpo, o.tentativas,
+            SELECT o.message_id, o.os_id, (o.envelope - '_carrierRastreio')::text AS corpo, (o.envelope->'_carrierRastreio')::text AS carrier, o.tentativas,
                    o.envelope->>'correlationId' AS correlation_id, o.envelope->>'traceparent' AS traceparent
             FROM outbox o
             WHERE o.estado='PENDING' AND o.disponivel_em <= ?
@@ -57,7 +59,8 @@ public class OutboxPublisher {
                 jdbc.execute("SET LOCAL lock_timeout = '500ms'");
                 var rows = jdbc.query(CLAIM, (rs, n) -> new Pendente(rs.getObject("message_id", UUID.class),
                         rs.getObject("os_id", UUID.class), rs.getString("corpo"), rs.getInt("tentativas"),
-                        rs.getString("correlation_id"), rs.getString("traceparent")), Timestamp.from(clock.instant()));
+                        rs.getString("correlation_id"), rs.getString("traceparent"),
+                        CarrierRastreio.ler(rs.getString("carrier"))), Timestamp.from(clock.instant()));
                 if (rows.isEmpty()) return false;
                 Pendente p = rows.get(0);
                 String ack;
@@ -89,7 +92,7 @@ public class OutboxPublisher {
         try {
             MDC.put("correlation_id", p.correlationId());
             if (p.traceparent() != null) MDC.put("traceparent", p.traceparent());
-            return enviador.enviar(p.osId(), p.messageId(), p.corpo());
+            return enviador.enviar(p.osId(), p.messageId(), p.corpo(), p.traco());
         } finally {
             restaurar("correlation_id", priorCorrelation);
             restaurar("traceparent", priorTrace);
@@ -110,5 +113,5 @@ public class OutboxPublisher {
     }
 
     private record Pendente(UUID messageId, UUID osId, String corpo, int tentativas,
-                            String correlationId, String traceparent) {}
+                            String correlationId, String traceparent, Map<String, String> traco) {}
 }

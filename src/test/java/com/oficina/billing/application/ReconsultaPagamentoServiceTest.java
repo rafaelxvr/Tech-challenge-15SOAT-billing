@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** Re-query fallback (no webhook tunnel): applies the provider state through the verified confirmation path. */
 @Import({GerarOrcamentoUseCase.class, RegistrarDecisaoUseCase.class, CancelarOrcamentoUseCase.class,
         ConfirmacaoPagamentoService.class, ReconsultaPagamentoService.class, EmissorRespostas.class, FabricaRespostas.class,
-        JdbcOutbox.class, MapeadorMensagens.class, ApoioCasosDeUso.class})
+        JdbcOutbox.class, com.oficina.billing.adapter.out.observability.NewRelicPropagadorTraco.class, MapeadorMensagens.class, ApoioCasosDeUso.class})
 class ReconsultaPagamentoServiceTest extends PostgresTeste {
     @Autowired GerarOrcamentoUseCase gerar;
     @Autowired RegistrarDecisaoUseCase decidir;
