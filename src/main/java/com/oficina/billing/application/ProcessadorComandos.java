@@ -1,6 +1,7 @@
 package com.oficina.billing.application;
 
 import com.oficina.billing.application.port.InboxPort;
+import com.oficina.billing.application.rastreio.PropagadorTraco;
 import com.oficina.billing.mensagem.Envelope;
 import com.oficina.billing.mensagem.MapeadorMensagens;
 import com.oficina.billing.mensagem.MensagemInvalidaException;
@@ -22,6 +23,7 @@ public class ProcessadorComandos {
     private final MapeadorMensagens mapeador;
     private final InboxPort inbox;
     private final RoteadorComandos roteador;
+    private final PropagadorTraco propagador;
 
     @Transactional
     public void processar(String corpo) {
@@ -32,6 +34,9 @@ public class ProcessadorComandos {
         try {
             MDC.put("correlation_id", comando.correlationId());
             if (comando.traceparent() != null) MDC.put("traceparent", comando.traceparent());
+            // Somente UUIDs: nenhum PII chega ao trace.
+            propagador.anotar("sagaId", comando.sagaId().toString());
+            propagador.anotar("correlationId", comando.correlationId());
             MDC.put("saga_id", comando.sagaId().toString());
             MDC.put("os_id", comando.osId().toString());
             if (!inbox.registrar(comando.messageId(), comando.type())) {

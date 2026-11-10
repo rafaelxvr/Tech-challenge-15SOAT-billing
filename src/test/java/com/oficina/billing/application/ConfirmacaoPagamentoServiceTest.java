@@ -18,7 +18,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Import({GerarOrcamentoUseCase.class, RegistrarDecisaoUseCase.class, CancelarOrcamentoUseCase.class,
-        ConfirmacaoPagamentoService.class, EmissorRespostas.class, FabricaRespostas.class, JdbcOutbox.class,
+        ConfirmacaoPagamentoService.class, EmissorRespostas.class, FabricaRespostas.class, JdbcOutbox.class, com.oficina.billing.adapter.out.observability.NewRelicPropagadorTraco.class,
         MapeadorMensagens.class, ApoioCasosDeUso.class})
 class ConfirmacaoPagamentoServiceTest extends PostgresTeste {
     @Autowired GerarOrcamentoUseCase gerar;

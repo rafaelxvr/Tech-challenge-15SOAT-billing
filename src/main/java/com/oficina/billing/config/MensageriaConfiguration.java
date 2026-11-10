@@ -4,6 +4,7 @@ import com.oficina.billing.adapter.in.messaging.SqsComandosListener;
 import com.oficina.billing.adapter.out.messaging.BackoffPublicacao;
 import com.oficina.billing.adapter.out.messaging.OutboxPublisher;
 import com.oficina.billing.adapter.out.messaging.SqsEnviadorMensagens;
+import com.oficina.billing.application.rastreio.PropagadorTraco;
 import com.oficina.billing.application.ExpiracaoPagamentosService;
 import com.oficina.billing.application.ProcessadorComandos;
 import com.oficina.billing.application.port.EnviadorMensagens;
@@ -41,8 +42,9 @@ public class MensageriaConfiguration {
         return new PollerPeriodico("billing-expiracao", () -> expiracao.expirarVencidos(20), Duration.ofSeconds(15));
     }
 
-    @Bean SqsComandosListener sqsComandosListener(ClientesSqs clientes, BillingProperties p, ProcessadorComandos processador) {
+    @Bean SqsComandosListener sqsComandosListener(ClientesSqs clientes, BillingProperties p, ProcessadorComandos processador,
+                                                    PropagadorTraco propagador) {
         SqsEnviadorMensagens.validarFila(p.mensageria().filaComandos());
-        return new SqsComandosListener(clientes.recepcao(), p.mensageria().filaComandos(), processador);
+        return new SqsComandosListener(clientes.recepcao(), p.mensageria().filaComandos(), processador, propagador);
     }
 }
