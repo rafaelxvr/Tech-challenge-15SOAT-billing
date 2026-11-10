@@ -62,15 +62,33 @@ final class ErroProvedorMercadoPago {
     /** @return a mensagem normalizada e truncada, ou vazio se não passar pela allowlist. */
     static Optional<String> sanitizar(String texto, List<String> segredos) {
         if (texto == null) return Optional.empty();
-        String s = ESPACOS.matcher(CONTROLE_OU_SEPARADOR.matcher(texto).replaceAll(" ")).replaceAll(" ").strip();
+        if (contemSegredo(texto, segredos)) return Optional.empty();
+        String s = normalizar(texto);
         if (s.isEmpty() || !MENSAGEM_PERMITIDA.matcher(s).matches() || pareceSensivel(s, segredos)) return Optional.empty();
         return Optional.of(s.length() > LIMITE_MENSAGEM ? s.substring(0, LIMITE_MENSAGEM) + "..." : s);
     }
 
-    private static boolean pareceSensivel(String s, List<String> segredos) {
+    private static String normalizar(String texto) {
+        return ESPACOS.matcher(CONTROLE_OU_SEPARADOR.matcher(texto).replaceAll(" ")).replaceAll(" ").strip();
+    }
+
+    /**
+     * Compara o segredo literal com o texto bruto e também com o texto e o segredo normalizados pela mesma função,
+     * para que tab, separador Unicode ou repetição de espaços não escondam um segredo que a normalização revelaria.
+     */
+    private static boolean contemSegredo(String texto, List<String> segredos) {
+        String normalizado = normalizar(texto);
         for (String segredo : segredos) {
-            if (segredo != null && !segredo.isBlank() && s.contains(segredo)) return true;
+            if (segredo == null || segredo.isBlank()) continue;
+            if (texto.contains(segredo)) return true;
+            String segredoNormalizado = normalizar(segredo);
+            if (!segredoNormalizado.isEmpty() && normalizado.contains(segredoNormalizado)) return true;
         }
+        return false;
+    }
+
+    private static boolean pareceSensivel(String s, List<String> segredos) {
+        if (contemSegredo(s, segredos)) return true;
         return PALAVRA_SENSIVEL.matcher(s).find()
                 || UUID_TEXTO.matcher(s).find()
                 || HEX_LONGO.matcher(s).find()

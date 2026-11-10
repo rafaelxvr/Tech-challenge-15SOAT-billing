@@ -60,6 +60,27 @@ class ErroProvedorMercadoPagoTest {
         assertThat(msg(texto)).isEmpty();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "prefixo abc\txyz sufixo",
+            "prefixo abc  xyz sufixo",
+            "prefixo abc xyz sufixo",
+            "prefixo abc​ xyz sufixo"})
+    void segredoComTabSeparadorOuEspacosRepetidosNaoVazaAposNormalizacao(String texto) {
+        assertThat(ErroProvedorMercadoPago.sanitizar(texto, List.of("abc\txyz"))).isEmpty();
+        assertThat(ErroProvedorMercadoPago.sanitizar(texto, List.of("abc  xyz"))).isEmpty();
+        assertThat(ErroProvedorMercadoPago.sanitizar(texto, List.of("abc xyz"))).isEmpty();
+    }
+
+    @Test void segredoConfiguradoComSeparadorNaoVazaViaCorpoDoProvedor() {
+        String json = "{\"message\":\"prefixo abc\\txyz sufixo\"}";
+        assertThat(ErroProvedorMercadoPago.de(json, List.of("abc\txyz")).mensagem()).isEmpty();
+    }
+
+    @Test void segredoSoDeSeparadoresNaoOmiteMensagemInocua() {
+        assertThat(ErroProvedorMercadoPago.sanitizar("Payment cannot be refunded", List.of(" \t "))).contains("Payment cannot be refunded");
+    }
+
     @Test void mensagemLongaETruncada() {
         String s = msg("z".repeat(500)).orElseThrow();
         assertThat(s).hasSize(ErroProvedorMercadoPago.LIMITE_MENSAGEM + 3).endsWith("...");
