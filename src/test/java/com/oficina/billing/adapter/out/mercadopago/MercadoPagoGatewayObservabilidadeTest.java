@@ -75,7 +75,7 @@ class MercadoPagoGatewayObservabilidadeTest {
                 .isInstanceOf(GatewayIndisponivelException.class)
                 .hasMessage("MERCADO_PAGO_ESTORNO_FALHOU");
         assertThat(saida()).isEqualTo("Mercado Pago operacao=MERCADO_PAGO_ESTORNO resultado=FALHA status=400 "
-                + "codigoProvedor=bad_request mensagemProvedor=\"Payment [id] cannot be refunded\"");
+                + "codigoProvedor=bad_request mensagemProvedor=\"x\"");
     }
 
     @Test void erro5xxUsaCodigoDaCausaQuandoNaoHaErro() {
@@ -101,18 +101,19 @@ class MercadoPagoGatewayObservabilidadeTest {
     }
 
     @Test void mensagemSemControleCrlfETruncada() {
-        String longa = "a".repeat(500);
+        String longa = "z".repeat(500);
         mp.stubFor(post("/v1/payments/1/refunds").willReturn(aResponse().withStatus(400).withBody(
-                "{\"message\":\"linha1\\r\\nFORJADO\\u0000\\u001b[31m fim " + longa + "\",\"error\":\"bad\\r\\nrequest\"}")));
+                "{\"message\":\"linha1\\r\\nFORJADO\\u0000\\u0085\\u2028 fim " + longa + "\",\"error\":\"bad\\r\\nrequest\"}")));
         assertThatThrownBy(() -> gateway.estornar("1", UUID.randomUUID())).isInstanceOf(GatewayIndisponivelException.class);
         String linha = saida();
-        assertThat(linha).doesNotContain("\r").doesNotContain("\n").doesNotContain("\u0000").doesNotContain("\u001b");
+        assertThat(linha).doesNotContain("\r").doesNotContain("\n").doesNotContain(String.valueOf((char) 0))
+                .doesNotContain(String.valueOf((char) 0x85)).doesNotContain(String.valueOf((char) 0x2028));
         assertThat(linha).contains("codigoProvedor=- ").contains("linha1 FORJADO");
         assertThat(linha).endsWith("...\"");
         assertThat(linha.length()).isLessThan(ErroProvedorMercadoPago.LIMITE_MENSAGEM + 200);
     }
 
-    @Test void ecoDeSegredosEOcultadoNaMensagem() {
+    @Test void ecoDeSegredosEOmitidoDaMensagem() {
         mp.stubFor(post("/v1/payments/1/refunds").willReturn(aResponse().withStatus(401).withBody(
                 "{\"message\":\"token " + TOKEN + " e " + SEGREDO_WEBHOOK + " Authorization: Bearer abc.def.ghi em "
                         + "https://api.mercadopago.com/v1/payments/55512345?access_token=zzz id "
@@ -120,7 +121,7 @@ class MercadoPagoGatewayObservabilidadeTest {
         assertThatThrownBy(() -> gateway.estornar("1", UUID.randomUUID())).isInstanceOf(GatewayIndisponivelException.class);
         assertThat(saida()).doesNotContain(TOKEN).doesNotContain(SEGREDO_WEBHOOK).doesNotContain("abc.def.ghi")
                 .doesNotContain("55512345").doesNotContain("access_token").doesNotContain("123e4567")
-                .doesNotContain("Bearer");
+                .doesNotContain("Bearer").endsWith("mensagemProvedor=\"-\"");
     }
 
     @Test void logsNaoTrazemAuthorizationQueryStringNemStackTrace() {

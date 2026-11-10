@@ -65,7 +65,7 @@ class MercadoPagoEstornoContratoTest {
 
     /**
      * Evidência do comportamento anterior (body(Map.of())): o corpo sai em Transfer-Encoding: chunked, sem
-     * Content-Length, e o Accept padrão do JDK (text/html, image/gif...) é enviado. Se o provedor real rejeita isso
+     * Content-Length. O Accept padrão depende do JDK e por isso não é fixado aqui. Se o provedor real rejeita isso
      * não é demonstrável localmente.
      */
     @Test void variacaoAnteriorComMapaEnviavaChunkedSemContentLength() {
@@ -77,7 +77,6 @@ class MercadoPagoEstornoContratoTest {
         assertThat(anterior.getBodyAsString()).isEqualTo("{}");
         assertThat(anterior.getHeader("Transfer-Encoding")).isEqualTo("chunked");
         assertThat(anterior.getHeader("Content-Length")).isNull();
-        assertThat(anterior.getHeader("Accept")).startsWith("text/html");
     }
 
     /** Variante comparativa (não usada em produção): sem corpo, a requisição sai sem Content-Type. */
