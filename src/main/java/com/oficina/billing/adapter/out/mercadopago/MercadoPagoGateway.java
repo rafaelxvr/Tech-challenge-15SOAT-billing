@@ -4,9 +4,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.oficina.billing.application.port.GatewayIndisponivelException;
 import com.oficina.billing.application.port.GatewayPagamento;
 import com.oficina.billing.config.BillingProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestClientException;
 
 import java.time.ZoneId;
@@ -15,12 +19,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /** Anti-corruption layer over the Mercado Pago REST API; provider fields never leave this class. */
 public class MercadoPagoGateway implements GatewayPagamento {
     private static final DateTimeFormatter DATA_MP = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
     private static final ZoneId ZONA = ZoneId.of("America/Sao_Paulo");
+    /** Estorno total: objeto JSON vazio, enviado como texto para sair com Content-Length (não chunked). */
+    private static final String CORPO_ESTORNO_TOTAL = "{}";
+    private static final Logger LOG = LoggerFactory.getLogger(MercadoPagoGateway.class);
     private final RestClient http;
+    private final List<String> segredos;
     private final boolean sandbox;
     private final String notificationUrl;
 
@@ -30,6 +39,7 @@ public class MercadoPagoGateway implements GatewayPagamento {
         fabrica.setReadTimeout(5_000);
         this.http = builder.baseUrl(mp.baseUrl()).requestFactory(fabrica)
                 .defaultHeader("Authorization", "Bearer " + mp.accessToken()).build();
+        this.segredos = List.of(String.valueOf(mp.accessToken()), String.valueOf(mp.webhookSecret()));
         this.sandbox = mp.sandbox();
         this.notificationUrl = mp.notificationUrl();
     }
@@ -44,7 +54,7 @@ public class MercadoPagoGateway implements GatewayPagamento {
                 "expires", true,
                 "expiration_date_to", DATA_MP.format(s.expiraEm().atZone(ZONA)));
         Preferencia p = chamar("MERCADO_PAGO_PREFERENCIA", () -> http.post().uri("/checkout/preferences")
-                .contentType(MediaType.APPLICATION_JSON).body(corpo).retrieve().body(Preferencia.class));
+                .contentType(MediaType.APPLICATION_JSON).body(corpo).retrieve().toEntity(Preferencia.class));
         String url = sandbox ? p.sandboxInitPoint() : p.initPoint();
         if (p.id() == null || url == null || !url.startsWith("https://")) {
             throw new GatewayIndisponivelException("MERCADO_PAGO_PREFERENCIA_INVALIDA");
@@ -55,7 +65,7 @@ public class MercadoPagoGateway implements GatewayPagamento {
     @Override
     public SituacaoPagamento consultarPagamento(String mpPaymentId) {
         PagamentoMp p = chamar("MERCADO_PAGO_CONSULTA", () -> http.get().uri("/v1/payments/{id}", mpPaymentId)
-                .retrieve().body(PagamentoMp.class));
+                .retrieve().toEntity(PagamentoMp.class));
         return new SituacaoPagamento(mpPaymentId, uuidOuNulo(p.externalReference()), status(p.status()),
                 p.transactionAmount(), p.currencyId());
     }
@@ -64,7 +74,7 @@ public class MercadoPagoGateway implements GatewayPagamento {
     public Optional<SituacaoPagamento> buscarPorReferencia(UUID pagamentoId) {
         BuscaMp busca = chamar("MERCADO_PAGO_BUSCA", () -> http.get().uri(
                 "/v1/payments/search?external_reference={ref}&sort=date_created&criteria=desc", pagamentoId.toString())
-                .retrieve().body(BuscaMp.class));
+                .retrieve().toEntity(BuscaMp.class));
         if (busca.results() == null) return Optional.empty();
         // Prefer an approved payment; otherwise the most recent one (the provider returns newest first).
         return busca.results().stream().filter(p -> p.id() != null)
@@ -75,9 +85,9 @@ public class MercadoPagoGateway implements GatewayPagamento {
 
     @Override
     public void estornar(String mpPaymentId, UUID chaveIdempotencia) {
-        chamar("MERCADO_PAGO_ESTORNO", () -> http.post().uri("/v1/payments/{id}/refunds", mpPaymentId)
-                .header("X-Idempotency-Key", chaveIdempotencia.toString()).contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of()).retrieve().toBodilessEntity());
+        chamarSemCorpo("MERCADO_PAGO_ESTORNO", () -> http.post().uri("/v1/payments/{id}/refunds", mpPaymentId)
+                .header("X-Idempotency-Key", chaveIdempotencia.toString()).accept(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_JSON).body(CORPO_ESTORNO_TOTAL).retrieve().toBodilessEntity());
     }
 
     private static StatusExterno status(String status) {
@@ -90,13 +100,35 @@ public class MercadoPagoGateway implements GatewayPagamento {
         try { return valor == null ? null : UUID.fromString(valor); } catch (IllegalArgumentException e) { return null; }
     }
 
-    private static <T> T chamar(String codigo, java.util.function.Supplier<T> chamada) {
+    private <T> T chamar(String operacao, Supplier<ResponseEntity<T>> chamada) {
+        ResponseEntity<T> resposta = executar(operacao, chamada);
+        if (resposta.getBody() == null) {
+            LOG.warn("Mercado Pago operacao={} resultado=VAZIO status={}", operacao, resposta.getStatusCode().value());
+            throw new GatewayIndisponivelException(operacao + "_VAZIO");
+        }
+        return resposta.getBody();
+    }
+
+    private void chamarSemCorpo(String operacao, Supplier<ResponseEntity<Void>> chamada) {
+        executar(operacao, chamada);
+    }
+
+    /** Executa a chamada registrando operação, resultado e status HTTP (quando houver); nunca registra dados brutos. */
+    private <T> ResponseEntity<T> executar(String operacao, Supplier<ResponseEntity<T>> chamada) {
         try {
-            T resultado = chamada.get();
-            if (resultado == null) throw new GatewayIndisponivelException(codigo + "_VAZIO");
-            return resultado;
+            ResponseEntity<T> resposta = chamada.get();
+            LOG.info("Mercado Pago operacao={} resultado=SUCESSO status={}", operacao, resposta.getStatusCode().value());
+            return resposta;
+        } catch (RestClientResponseException e) {
+            ErroProvedorMercadoPago erro = ErroProvedorMercadoPago.de(e.getResponseBodyAsString(), segredos);
+            LOG.warn("Mercado Pago operacao={} resultado=FALHA status={} codigoProvedor={} mensagemProvedor=\"{}\"",
+                    operacao, e.getStatusCode().value(), erro.codigo().orElse("-"), erro.mensagem().orElse("-"));
+            throw new GatewayIndisponivelException(operacao + "_FALHOU");
         } catch (RestClientException e) {
-            throw new GatewayIndisponivelException(codigo + "_FALHOU");
+            // Timeout/conexão/corpo ilegível: sem status HTTP; só o tipo da causa, nunca a mensagem (pode ter URL).
+            Throwable causa = e.getCause() != null ? e.getCause() : e;
+            LOG.warn("Mercado Pago operacao={} resultado=FALHA status=- tipo={}", operacao, causa.getClass().getSimpleName());
+            throw new GatewayIndisponivelException(operacao + "_FALHOU");
         }
     }
 
