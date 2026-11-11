@@ -19,6 +19,8 @@ import java.util.function.Supplier;
 /** New Relic implementation; without the agent attached the API is a no-op and the carrier comes back empty. */
 @Component
 public class NewRelicPropagadorTraco implements PropagadorTraco {
+    /** Canonical ids (UUID, 36 chars) only; anything longer is not an id and stays out of the trace. */
+    private static final int TAMANHO_MAXIMO_VALOR = 64;
     private final Supplier<Transaction> transacao;
     private final BiConsumer<String, String> atributo;
 
@@ -52,6 +54,7 @@ public class NewRelicPropagadorTraco implements PropagadorTraco {
     }
 
     @Override public void anotar(String chave, String valor) {
+        if (chave == null || valor == null || valor.isBlank() || valor.length() > TAMANHO_MAXIMO_VALOR) return;
         try {
             atributo.accept(chave, valor);
         } catch (RuntimeException e) {
