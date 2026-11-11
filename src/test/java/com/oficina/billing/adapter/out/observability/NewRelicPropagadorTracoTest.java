@@ -70,4 +70,23 @@ class NewRelicPropagadorTracoTest {
         propagador.anotar("sagaId", "id");
         assertThat(atributos).containsExactly("sagaId=id");
     }
+
+    @Test void naoAnotaValorAusenteEmBrancoOuMaiorQueUmIdCanonico() {
+        propagador.anotar("sagaId", null);
+        propagador.anotar("sagaId", "  ");
+        propagador.anotar("correlationId", "x".repeat(65));
+        propagador.anotar(null, "id");
+        assertThat(atributos).isEmpty();
+    }
+
+    @Test void anotaIdCanonicoNoLimiteDeTamanho() {
+        String uuid = java.util.UUID.randomUUID().toString();
+        propagador.anotar("correlationId", uuid);
+        assertThat(atributos).containsExactly("correlationId=" + uuid);
+    }
+
+    @Test void falhaDoAgenteAoAnotarNaoPropaga() {
+        var falho = new NewRelicPropagadorTraco(() -> transacao, (chave, valor) -> { throw new IllegalStateException("agente"); });
+        org.assertj.core.api.Assertions.assertThatCode(() -> falho.anotar("sagaId", "id")).doesNotThrowAnyException();
+    }
 }
